@@ -638,6 +638,27 @@ async def billing_portal(request: Request):
     return RedirectResponse(portal_url, status_code=303)
 
 
+@app.post("/admin/grant-access")
+async def admin_grant_access(request: Request, secret: str = Form(...), email: str = Form(...), plan: str = Form("pro")):
+    """
+    Débloque manuellement un abonnement (test/support), sans passer par Stripe.
+    Protégé par ADMIN_SECRET — à retirer ou sécuriser davantage avant un vrai lancement public.
+    """
+    admin_secret = os.environ.get("ADMIN_SECRET", "")
+    if not admin_secret or secret != admin_secret:
+        return HTMLResponse("Forbidden", status_code=403)
+
+    async with db.get_session() as session:
+        user = await db.get_user_by_email(session, email)
+        if not user:
+            return HTMLResponse(f"Aucun compte trouvé pour {email}", status_code=404)
+        user.plan = plan
+        user.subscription_status = "active"
+        await session.commit()
+
+    return {"email": email, "plan": plan, "subscription_status": "active"}
+
+
 @app.post("/billing/webhook")
 async def billing_webhook(request: Request):
     payload = await request.body()
