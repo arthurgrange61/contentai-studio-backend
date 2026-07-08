@@ -208,7 +208,14 @@ async def connect(request: Request, platform: str):
             return RedirectResponse("/")
         if user.subscription_status != "active":
             return RedirectResponse("/settings?subscribe_required=1")
+
+        plan_cfg = billing.PLANS.get(user.plan)
+        max_accounts = plan_cfg["max_accounts"] if plan_cfg else 0
         profile_id = await _ensure_profile(session, user)
+
+    current_accounts = await zernio.list_accounts(profile_id)
+    if len(current_accounts) >= max_accounts:
+        return RedirectResponse("/settings?account_limit=1")
 
     redirect_url = f"{_base_url(request)}/connect/callback"
     auth_url = await zernio.get_connect_url(platform=platform, profile_id=profile_id, redirect_url=redirect_url)

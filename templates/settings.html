@@ -24,6 +24,16 @@
     </div>
     {% endif %}
 
+    {% if request.query_params.get('account_limit') %}
+    <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 mb-6">
+      <p class="text-sm font-semibold text-amber-900 mb-0.5">Limite de comptes atteinte</p>
+      <p class="text-sm text-amber-700">
+        Ta formule actuelle ne permet pas de connecter plus de comptes.
+        <a href="/billing/portal" class="underline font-medium">Change de formule</a> pour en connecter davantage.
+      </p>
+    </div>
+    {% endif %}
+
     <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-7 mb-6">
       <h2 class="text-lg font-semibold mb-1">Comptes connectés</h2>
       <p class="text-sm text-gray-500 mb-5">Reliez vos réseaux pour pouvoir publier depuis le composer.</p>
@@ -62,24 +72,51 @@
         Formule actuelle : <span class="font-medium text-gray-900">{{ plans[plan].label if plan in plans else plan }}</span>
         <span class="text-green-600">● Active</span>
       </p>
+      {% if plan in plans %}
+      <button type="button" onclick="toggleDetails('detail-current', this)" class="text-left w-full mb-2">
+        <span class="text-xs font-medium text-indigo-600 toggle-label">En savoir plus sur ma formule ↓</span>
+      </button>
+      <div id="detail-current" class="hidden mb-5 p-4 bg-gray-50 rounded-xl text-sm text-gray-600">
+        {{ plans[plan].description }}
+      </div>
+      {% endif %}
       <a href="/billing/portal" class="inline-block text-sm font-medium text-white grad-bg rounded-xl px-5 py-2.5">
         Gérer mon abonnement
       </a>
       {% else %}
       <p class="text-sm text-gray-500 mb-5">Choisis une formule pour activer la publication automatique.</p>
-      <div class="grid sm:grid-cols-3 gap-3">
+      <div class="grid sm:grid-cols-2 gap-3">
         {% for key, cfg in plans.items() %}
-        <form method="post" action="/billing/checkout" class="border border-gray-200 rounded-xl p-4 flex flex-col">
-          <input type="hidden" name="plan" value="{{ key }}"/>
+        <div class="border border-gray-200 rounded-xl p-4 flex flex-col">
           <span class="font-semibold text-sm mb-1">{{ cfg.label }}</span>
-          <span class="text-xs text-gray-500 mb-4">{{ cfg.price_display }}</span>
-          <button type="submit" class="mt-auto grad-bg text-white text-sm font-semibold rounded-lg py-2">Choisir</button>
-        </form>
+          <span class="text-xs text-gray-500 mb-3">{{ cfg.price_display }}</span>
+          <button type="button" onclick="toggleDetails('detail-{{ key }}', this)" class="text-left mb-3">
+            <span class="text-xs font-medium text-indigo-600 toggle-label">En savoir plus ↓</span>
+          </button>
+          <div id="detail-{{ key }}" class="hidden mb-3 p-3 bg-gray-50 rounded-lg text-xs text-gray-600">
+            {{ cfg.description }}
+          </div>
+          <form method="post" action="/billing/checkout" class="mt-auto">
+            <input type="hidden" name="plan" value="{{ key }}"/>
+            <button type="submit" class="w-full grad-bg text-white text-sm font-semibold rounded-lg py-2">Choisir</button>
+          </form>
+        </div>
         {% endfor %}
       </div>
       {% endif %}
     </div>
   </main>
+
+  <script>
+    function toggleDetails(id, btn) {
+      const el = document.getElementById(id);
+      const wasHidden = el.classList.contains('hidden');
+      el.classList.toggle('hidden');
+      const label = btn.querySelector('.toggle-label');
+      if (label) label.textContent = wasHidden ? label.textContent.replace('En savoir plus', 'Réduire').replace('↓', '↑')
+                                                : label.textContent.replace('Réduire', 'En savoir plus').replace('↑', '↓');
+    }
+  </script>
 
   <footer class="border-t border-gray-100 mt-10">
     <div class="max-w-3xl mx-auto px-6 py-6 flex gap-6 text-xs text-gray-400">
