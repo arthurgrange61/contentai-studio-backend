@@ -9,7 +9,7 @@ import datetime
 import os
 import uuid
 
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, select
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, select
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -49,6 +49,7 @@ class StudioUser(Base):
     photos: Mapped[list["Photo"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     styles: Mapped[list["ContentStyle"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     contents: Mapped[list["GeneratedContent"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    posting_rules: Mapped[list["PostingRule"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class Photo(Base):
@@ -64,15 +65,39 @@ class Photo(Base):
 
 
 class ContentStyle(Base):
+    """
+    Un style = une recette complète de génération de contenu, pas seulement
+    un ton de texte : combien de photos par publication, sur laquelle
+    incruster le texte, et si une musique doit être ajoutée (TikTok).
+    """
     __tablename__ = "content_styles"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     user_id: Mapped[str] = mapped_column(ForeignKey("studio_users.id"))
     name: Mapped[str] = mapped_column(String)
-    example_texts: Mapped[list] = mapped_column(JSON, default=list)  # liste de textes d'exemple
+    example_texts: Mapped[list] = mapped_column(JSON, default=list)  # liste de textes d'exemple (ton pour l'IA)
+    photo_count: Mapped[int] = mapped_column(Integer, default=1)     # nombre de photos par publication (carrousel)
+    overlay_position: Mapped[str] = mapped_column(String, default="first")  # none | first | last | all
+    music_enabled: Mapped[bool] = mapped_column(Boolean, default=False)     # musique auto TikTok
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
 
     user: Mapped[StudioUser] = relationship(back_populates="styles")
+
+
+class PostingRule(Base):
+    """Une règle récurrente : « chaque lundi à 9h, publie avec le style X »."""
+    __tablename__ = "posting_rules"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("studio_users.id"))
+    style_id: Mapped[str] = mapped_column(ForeignKey("content_styles.id"))
+    day_of_week: Mapped[int] = mapped_column(Integer)  # 0 = lundi ... 6 = dimanche
+    time: Mapped[str] = mapped_column(String)          # "HH:MM"
+    account_ids: Mapped[list] = mapped_column(JSON, default=list)  # comptes Zernio cibles
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
+
+    user: Mapped[StudioUser] = relationship(back_populates="posting_rules")
+    style: Mapped[ContentStyle] = relationship()
 
 
 class GeneratedContent(Base):
@@ -84,6 +109,7 @@ class GeneratedContent(Base):
 
     photo_urls: Mapped[list] = mapped_column(JSON, default=list)     # photos sources, dans l'ordre choisi
     composed_urls: Mapped[list] = mapped_column(JSON, default=list)  # photos finales (texte incrusté), uploadées chez Zernio
+    account_ids: Mapped[list] = mapped_column(JSON, default=list)    # comptes Zernio cibles pour cette pièce
     caption: Mapped[str] = mapped_column(Text, default="")
     overlay_text: Mapped[str] = mapped_column(Text, default="")
 
@@ -133,5 +159,14 @@ async def list_styles(session: AsyncSession, user_id: str) -> list[ContentStyle]
 async def list_contents(session: AsyncSession, user_id: str) -> list[GeneratedContent]:
     r = await session.execute(
         select(GeneratedContent).where(GeneratedContent.user_id == user_id).order_by(GeneratedContent.scheduled_for)
+    )
+    return list(r.scalars())
+
+
+async def list_posting_rules(session: AsyncSession, user_id: str) -> list[PostingRule]:
+    r = await session.execute(
+        select(PostingRule)
+        .where(PostingRule.user_id == user_id)
+        .order_by(PostingRule.day_of_week, PostingRule.time)
     )
     return list(r.scalars())

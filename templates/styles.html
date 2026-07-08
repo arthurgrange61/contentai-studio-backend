@@ -16,23 +16,51 @@
   <main class="max-w-3xl mx-auto px-6 py-10">
     <h1 class="text-2xl font-bold mb-1">Styles de contenu</h1>
     <p class="text-sm text-gray-500 mb-8">
-      Donne quelques exemples du ton que tu aimes — l'IA s'en inspire pour écrire les légendes
-      et les textes incrustés sur tes photos, sans jamais répéter la même formulation.
+      Un style est une recette complète de génération : combien de photos par publication,
+      où incruster le texte, si une musique s'ajoute, et le ton que l'IA doit adopter.
+      Crée-en plusieurs pour varier ton contenu.
     </p>
 
     <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-7 mb-8">
       <h2 class="text-lg font-semibold mb-4">Nouveau style</h2>
-      <form method="post" action="/styles" class="space-y-4">
+      <form method="post" action="/styles" class="space-y-5">
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1.5">Nom du style</label>
-          <input name="name" required placeholder="Ex : Ton complice et fun"
+          <input name="name" required placeholder="Ex : Carrousel produit du lundi"
             class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"/>
         </div>
+
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Nombre de photos par publication</label>
+            <input type="number" name="photo_count" min="1" max="10" value="1"
+              class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none"/>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Texte incrusté sur</label>
+            <select name="overlay_position" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none">
+              <option value="first" selected>La 1ère photo uniquement</option>
+              <option value="last">La dernière photo uniquement</option>
+              <option value="all">Toutes les photos</option>
+              <option value="none">Aucune (légende seule)</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="flex items-center justify-between border border-gray-200 rounded-xl px-4 py-3 cursor-pointer">
+          <span>
+            <span class="text-sm font-semibold">🎵 Musique automatique</span>
+            <span class="block text-xs text-gray-400">TikTok ajoute une musique tendance à ce type de contenu.</span>
+          </span>
+          <input type="checkbox" name="music_enabled" value="on" class="w-5 h-5 accent-indigo-600"/>
+        </label>
+
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1.5">Exemples de textes (un par ligne)</label>
           <textarea name="examples" rows="5" placeholder="Craquez pour nos pépites du moment ✨&#10;Le bijou qui change tout, dispo maintenant&#10;On a un petit secret à vous confier..."
             class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"></textarea>
         </div>
+
         <button type="submit" class="w-full grad-bg text-white font-semibold rounded-xl py-3">Enregistrer le style</button>
       </form>
     </div>
@@ -46,6 +74,17 @@
           <form method="post" action="/styles/delete/{{ style.id }}">
             <button type="submit" class="text-xs text-gray-400 hover:text-red-600">Supprimer</button>
           </form>
+        </div>
+        <div class="flex flex-wrap gap-2 mb-3">
+          <span class="text-xs bg-gray-100 text-gray-600 rounded-full px-2.5 py-1">
+            {{ style.photo_count }} photo{{ 's' if style.photo_count > 1 else '' }}
+          </span>
+          <span class="text-xs bg-gray-100 text-gray-600 rounded-full px-2.5 py-1">
+            Texte : {{ {'first':'1ère photo','last':'dernière photo','all':'toutes les photos','none':'aucune'}[style.overlay_position] }}
+          </span>
+          {% if style.music_enabled %}
+          <span class="text-xs bg-indigo-100 text-indigo-700 rounded-full px-2.5 py-1">🎵 Musique auto</span>
+          {% endif %}
         </div>
         {% if style.example_texts %}
         <ul class="text-xs text-gray-500 space-y-1">

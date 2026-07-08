@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContentAI Studio — Publication automatique</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .grad-bg { background: linear-gradient(90deg,#6366f1,#a855f7,#ec4899); }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 antialiased min-h-screen">
+  {% include "_nav.html" %}
+
+  <main class="max-w-3xl mx-auto px-6 py-10">
+    <h1 class="text-2xl font-bold mb-1">Publication automatique</h1>
+    <p class="text-sm text-gray-500 mb-8">
+      Définis quel style publier, quel jour et à quelle heure — ça se répète chaque semaine.
+      Ensuite, génère le planning pour créer et programmer automatiquement le contenu à venir.
+    </p>
+
+    {% if not styles %}
+    <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 mb-8">
+      <p class="text-sm text-amber-800">Crée d'abord un <a href="/styles" class="underline font-medium">style de contenu</a>.</p>
+    </div>
+    {% elif not accounts %}
+    <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 mb-8">
+      <p class="text-sm text-amber-800">Connecte d'abord un compte dans les <a href="/settings" class="underline font-medium">paramètres</a>.</p>
+    </div>
+    {% else %}
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-7 mb-8">
+      <h2 class="text-lg font-semibold mb-4">Nouvelle règle récurrente</h2>
+      <form method="post" action="/posting/rules" class="space-y-4">
+        <div class="grid sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Jour</label>
+            <select name="day_of_week" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:border-indigo-500 outline-none">
+              {% for label in weekday_labels %}
+              <option value="{{ loop.index0 }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Heure</label>
+            <input type="time" name="time" value="09:00"
+              class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:border-indigo-500 outline-none"/>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Style</label>
+            <select name="style_id" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:border-indigo-500 outline-none">
+              {% for style in styles %}
+              <option value="{{ style.id }}">{{ style.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1.5">Comptes cibles</label>
+          <div class="grid sm:grid-cols-2 gap-2">
+            {% for acc in accounts %}
+            <label class="flex items-center gap-2.5 text-sm border border-gray-200 rounded-xl px-3.5 py-2.5 cursor-pointer has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+              <input type="checkbox" name="account_ids" value="{{ acc._id }}" class="accent-indigo-600"/>
+              <span class="font-medium capitalize">{{ acc.platform }}</span>
+              <span class="text-gray-400">@{{ acc.username or acc.displayName }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <button type="submit" class="w-full grad-bg text-white font-semibold rounded-xl py-3">Ajouter la règle</button>
+      </form>
+    </div>
+
+    {% if rules %}
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-7 mb-8">
+      <h2 class="text-lg font-semibold mb-4">Planning hebdomadaire</h2>
+      <div class="space-y-2">
+        {% for rule in rules %}
+        <div class="flex items-center justify-between border border-gray-100 rounded-xl px-4 py-3 text-sm">
+          <span>
+            <span class="font-medium">{{ weekday_labels[rule.day_of_week] }} à {{ rule.time }}</span>
+            <span class="text-gray-400"> — {{ rule.style.name if rule.style else '?' }}</span>
+            <span class="text-gray-400"> · {{ rule.account_ids|length }} compte(s)</span>
+          </span>
+          <form method="post" action="/posting/rules/delete/{{ rule.id }}">
+            <button type="submit" class="text-xs text-gray-400 hover:text-red-600">Supprimer</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-7">
+      <h2 class="text-lg font-semibold mb-1">Générer le planning</h2>
+      <p class="text-sm text-gray-500 mb-4">
+        Crée et programme automatiquement toutes les occurrences à venir de tes règles.
+      </p>
+      <form method="post" action="/posting/generate" class="flex items-end gap-3">
+        <div class="flex-1">
+          <label class="block text-xs font-medium text-gray-500 mb-1.5">Sur combien de semaines ?</label>
+          <input type="number" name="weeks_ahead" min="1" max="8" value="2"
+            class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:border-indigo-500 outline-none"/>
+        </div>
+        <button type="submit" class="grad-bg text-white font-semibold rounded-xl px-6 py-2.5">Générer</button>
+      </form>
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-400 text-center py-6">Aucune règle pour l'instant — ajoute-en une ci-dessus.</p>
+    {% endif %}
+    {% endif %}
+  </main>
+</body>
+</html>

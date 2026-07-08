@@ -20,12 +20,15 @@ Routes principales :
   POST /library/upload
   POST /library/delete/{photo_id}
 
-  GET  /styles               → styles de contenu (exemples de textes pour guider l'IA)
+  GET  /styles               → recettes de génération (nb de photos, musique, position du
+                                texte incrusté, exemples de textes pour guider l'IA)
   POST /styles
   POST /styles/delete/{style_id}
 
-  GET  /generate             → génération par lot (auto ou semi-manuel)
-  POST /generate             → lance la génération en tâche de fond
+  GET  /posting              → planning récurrent (quel style, quel jour, quelle heure)
+  POST /posting/rules        → ajoute une règle récurrente
+  POST /posting/rules/delete/{rule_id}
+  POST /posting/generate     → génère les prochaines occurrences en tâche de fond
   GET  /queue                → suivi de la file de contenus générés/programmés
 
   GET  /logout
@@ -46,7 +49,6 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from itsdangerous import URLSafeSerializer, BadSignature
-from sqlalchemy import select
 
 import ai_writer
 import db
@@ -71,7 +73,6 @@ SESSION_SECRET = os.environ.get("SESSION_SECRET", "dev-secret-change-me")
 signer = URLSafeSerializer(SESSION_SECRET, salt="contentai-studio-session")
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"}
-RECURRENCE_DAYS = {"none": None, "daily": 1, "2days": 2, "3days": 3, "weekly": 7}
 
 
 # ─── Session (cookie signé -> user_id, l'utilisateur lui-même vit en DB) ────
@@ -350,15 +351,30 @@ async def styles_page(request: Request):
 
 
 @app.post("/styles", response_class=HTMLResponse)
-async def styles_create(request: Request, name: str = Form(...), examples: str = Form("")):
+async def styles_create(
+    request: Request,
+    name: str = Form(...),
+    examples: str = Form(""),
+    photo_count: int = Form(1),
+    overlay_position: str = Form("first"),   # "none" | "first" | "last" | "all"
+    music_enabled: str = Form("off"),
+):
     user_id = _session_user_id(request)
     if not user_id:
         return RedirectResponse("/", status_code=303)
 
     example_texts = [line.strip() for line in examples.splitlines() if line.strip()]
+    photo_count = max(1, min(10, photo_count))
 
     async with db.get_session() as session:
-        session.add(db.ContentStyle(user_id=user_id, name=name, example_texts=example_texts))
+        session.add(db.ContentStyle(
+            user_id=user_id,
+            name=name,
+            example_texts=example_texts,
+            photo_count=photo_count,
+            overlay_position=overlay_position,
+            music_enabled=(music_enabled == "on"),
+        ))
         await session.commit()
 
     return RedirectResponse("/styles", status_code=303)
@@ -378,9 +394,12 @@ async def styles_delete(style_id: str, request: Request):
     return RedirectResponse("/styles", status_code=303)
 
 
-# ─── Génération par lot ──────────────────────────────────────────────────────
-@app.api_route("/generate", methods=["GET", "HEAD"], response_class=HTMLResponse)
-async def generate_page(request: Request):
+# ─── Publication automatique (planning récurrent par jour + style) ─────────
+WEEKDAY_LABELS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
+
+
+@app.api_route("/posting", methods=["GET", "HEAD"], response_class=HTMLResponse)
+async def posting_page(request: Request):
     user_id = _session_user_id(request)
     if not user_id:
         return RedirectResponse("/")
@@ -389,31 +408,78 @@ async def generate_page(request: Request):
         user = await db.get_user(session, user_id)
         if not user:
             return RedirectResponse("/")
-        photos = await db.list_photos(session, user_id)
         styles = await db.list_styles(session, user_id)
+        rules = await db.list_posting_rules(session, user_id)
         accounts = await zernio.list_accounts(user.profile_id) if user.profile_id else []
         return templates.TemplateResponse(
-            "generate.html",
+            "posting.html",
             {
                 "request": request,
                 "business_name": user.business_name,
-                "photos": photos,
                 "styles": styles,
+                "rules": rules,
                 "accounts": accounts,
+                "weekday_labels": WEEKDAY_LABELS,
             },
         )
 
 
-async def _run_batch(user_id: str, content_ids: list[str], account_ids: list[str]):
-    """Tâche de fond : génère le texte IA, incruste sur la photo, publie/programme via Zernio."""
+@app.post("/posting/rules", response_class=HTMLResponse)
+async def posting_rule_create(
+    request: Request,
+    style_id: str = Form(...),
+    day_of_week: int = Form(...),
+    time: str = Form("09:00"),
+    account_ids: list[str] = Form(default=[]),
+):
+    user_id = _session_user_id(request)
+    if not user_id:
+        return RedirectResponse("/", status_code=303)
+
+    async with db.get_session() as session:
+        session.add(db.PostingRule(
+            user_id=user_id, style_id=style_id, day_of_week=day_of_week, time=time, account_ids=account_ids,
+        ))
+        await session.commit()
+
+    return RedirectResponse("/posting", status_code=303)
+
+
+@app.post("/posting/rules/delete/{rule_id}")
+async def posting_rule_delete(rule_id: str, request: Request):
+    user_id = _session_user_id(request)
+    if not user_id:
+        return RedirectResponse("/", status_code=303)
+
+    async with db.get_session() as session:
+        rule = await session.get(db.PostingRule, rule_id)
+        if rule and rule.user_id == user_id:
+            await session.delete(rule)
+            await session.commit()
+    return RedirectResponse("/posting", status_code=303)
+
+
+def _draw_photos(pool: list[db.Photo], cursor: list[int], n: int) -> list[db.Photo]:
+    """Pioche `n` photos dans `pool` en tournant dessus (évite les répétitions immédiates)."""
+    if not pool:
+        return []
+    picked = []
+    for _ in range(n):
+        if cursor[0] % len(pool) == 0 and cursor[0] != 0:
+            random.shuffle(pool)
+        picked.append(pool[cursor[0] % len(pool)])
+        cursor[0] += 1
+    return picked
+
+
+async def _run_batch(user_id: str, content_ids: list[str]):
+    """Tâche de fond : génère le texte IA, incruste sur les photos, publie/programme via Zernio."""
     async with db.get_session() as session:
         user = await db.get_user(session, user_id)
         if not user or not user.profile_id:
             return
-        accounts = await zernio.list_accounts(user.profile_id)
-        selected_accounts = [a for a in accounts if a["_id"] in account_ids]
-        if not selected_accounts:
-            return
+        all_accounts = await zernio.list_accounts(user.profile_id)
+        accounts_by_id = {a["_id"]: a for a in all_accounts}
 
         total = len(content_ids)
         for idx, content_id in enumerate(content_ids):
@@ -421,11 +487,17 @@ async def _run_batch(user_id: str, content_ids: list[str], account_ids: list[str
             if not item:
                 continue
 
-            style_examples = []
-            if item.style_id:
-                style = await session.get(db.ContentStyle, item.style_id)
-                if style:
-                    style_examples = style.example_texts or []
+            style = await session.get(db.ContentStyle, item.style_id) if item.style_id else None
+            style_examples = (style.example_texts if style else []) or []
+            overlay_position = style.overlay_position if style else "first"
+            music_enabled = style.music_enabled if style else False
+
+            selected_accounts = [accounts_by_id[aid] for aid in item.account_ids if aid in accounts_by_id]
+            if not selected_accounts:
+                item.status = "failed"
+                item.error = "Aucun compte cible valide (déconnecté ?)."
+                await session.commit()
+                continue
 
             try:
                 ai_result = await ai_writer.generate_content_piece(
@@ -434,25 +506,41 @@ async def _run_batch(user_id: str, content_ids: list[str], account_ids: list[str
                     piece_index=idx,
                     total_pieces=total,
                 )
-                photo_url = item.photo_urls[0]
+
+                n = len(item.photo_urls)
+                overlay_indexes = {
+                    "none": set(),
+                    "first": {0},
+                    "last": {n - 1},
+                    "all": set(range(n)),
+                }.get(overlay_position, {0})
+
+                composed_urls = []
                 async with httpx.AsyncClient(timeout=30) as client:
-                    photo_bytes = (await client.get(photo_url)).content
-                composed = imaging.overlay_text_on_image(photo_bytes, ai_result["overlay_text"])
-                composed_url = await zernio.upload_media(f"generated_{content_id}.jpg", "image/jpeg", composed)
+                    for i, photo_url in enumerate(item.photo_urls):
+                        if i in overlay_indexes:
+                            photo_bytes = (await client.get(photo_url)).content
+                            composed = imaging.overlay_text_on_image(photo_bytes, ai_result["overlay_text"])
+                            composed_urls.append(
+                                await zernio.upload_media(f"generated_{content_id}_{i}.jpg", "image/jpeg", composed)
+                            )
+                        else:
+                            composed_urls.append(photo_url)
 
                 scheduled_iso = item.scheduled_for.isoformat() if item.scheduled_for else None
                 result = await zernio.create_post(
                     profile_id=user.profile_id,
                     accounts=selected_accounts,
                     content=ai_result["caption"],
-                    media_urls=[composed_url],
+                    media_urls=composed_urls,
                     scheduled_for=scheduled_iso,
                     timezone="Europe/Paris",
+                    auto_add_music=music_enabled,
                 )
 
                 item.overlay_text = ai_result["overlay_text"]
                 item.caption = ai_result["caption"]
-                item.composed_urls = [composed_url]
+                item.composed_urls = composed_urls
                 if result.get("error"):
                     item.status = "failed"
                     item.error = str(result["error"])
@@ -467,58 +555,62 @@ async def _run_batch(user_id: str, content_ids: list[str], account_ids: list[str
             await session.commit()
 
 
-@app.post("/generate", response_class=HTMLResponse)
-async def generate_submit(
+@app.post("/posting/generate", response_class=HTMLResponse)
+async def posting_generate(
     request: Request,
     background_tasks: BackgroundTasks,
-    mode: str = Form("auto"),                  # "auto" | "manual"
-    count: int = Form(10),
-    photo_order: str = Form(""),               # manuel : ids séparés par des virgules, dans l'ordre
-    style_id: str = Form(""),
-    start_date: str = Form(...),
-    start_time: str = Form("09:00"),
-    recurrence: str = Form("daily"),           # "daily" | "2days" | "3days" | "weekly"
-    account_ids: list[str] = Form(default=[]),
+    weeks_ahead: int = Form(2),
 ):
     user_id = _session_user_id(request)
     if not user_id:
         return RedirectResponse("/", status_code=303)
 
+    weeks_ahead = max(1, min(8, weeks_ahead))
+
     async with db.get_session() as session:
         user = await db.get_user(session, user_id)
-        if not user or not user.profile_id or not account_ids:
-            return RedirectResponse("/generate", status_code=303)
+        if not user or not user.profile_id:
+            return RedirectResponse("/posting", status_code=303)
 
+        rules = await db.list_posting_rules(session, user_id)
         photos = await db.list_photos(session, user_id)
-        if not photos:
-            return RedirectResponse("/generate", status_code=303)
-        by_id = {p.id: p for p in photos}
+        if not rules or not photos:
+            return RedirectResponse("/posting", status_code=303)
 
-        if mode == "manual" and photo_order.strip():
-            ordered_ids = [pid for pid in photo_order.split(",") if pid in by_id]
-        else:
-            pool = photos.copy()
-            random.shuffle(pool)
-            ordered_ids = []
-            i = 0
-            while len(ordered_ids) < max(1, count):
-                ordered_ids.append(pool[i % len(pool)].id)
-                i += 1
+        styles_by_id = {s.id: s for s in await db.list_styles(session, user_id)}
 
-        try:
-            start_dt = datetime.datetime.fromisoformat(f"{start_date}T{start_time}:00")
-        except ValueError:
-            start_dt = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-        step_days = RECURRENCE_DAYS.get(recurrence, 1) or 1
+        # Calcule chaque occurrence (règle × semaine) à venir, triée dans le temps,
+        # pour que le tirage des photos avance de façon cohérente sur tout le planning.
+        now = datetime.datetime.utcnow()
+        occurrences = []
+        for rule in rules:
+            style = styles_by_id.get(rule.style_id)
+            if not style:
+                continue
+            hour, minute = (int(p) for p in rule.time.split(":"))
+            for week in range(weeks_ahead):
+                days_until = (rule.day_of_week - now.weekday()) % 7 + week * 7
+                occurrence_date = (now + datetime.timedelta(days=days_until)).replace(
+                    hour=hour, minute=minute, second=0, microsecond=0
+                )
+                if occurrence_date <= now:
+                    occurrence_date += datetime.timedelta(days=7)
+                occurrences.append((occurrence_date, rule, style))
+        occurrences.sort(key=lambda o: o[0])
+
+        pool = photos.copy()
+        random.shuffle(pool)
+        cursor = [0]
 
         content_ids = []
-        for idx, photo_id in enumerate(ordered_ids):
-            scheduled_for = start_dt + datetime.timedelta(days=step_days * idx)
+        for occurrence_date, rule, style in occurrences:
+            picked = _draw_photos(pool, cursor, style.photo_count)
             item = db.GeneratedContent(
                 user_id=user_id,
-                style_id=(style_id or None),
-                photo_urls=[by_id[photo_id].url],
-                scheduled_for=scheduled_for,
+                style_id=style.id,
+                photo_urls=[p.url for p in picked],
+                account_ids=rule.account_ids,
+                scheduled_for=occurrence_date,
                 status="pending",
             )
             session.add(item)
@@ -526,7 +618,7 @@ async def generate_submit(
             content_ids.append(item.id)
         await session.commit()
 
-    background_tasks.add_task(_run_batch, user_id, content_ids, account_ids)
+    background_tasks.add_task(_run_batch, user_id, content_ids)
     return RedirectResponse("/queue", status_code=303)
 
 
