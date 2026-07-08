@@ -9,13 +9,17 @@ connexion de ses comptes sociaux passe par le flux OAuth hébergé par Zernio
 
 Routes :
   GET  /                     → formulaire d'inscription (nom + email uniquement)
-  POST /signup               → crée le profile Zernio + session
+  POST /signup               → crée le compte Studio en local — AUCUN appel Zernio
   GET  /dashboard            → aperçu produit + formulaire de post (accessible sans compte connecté)
   GET  /settings             → comptes connectés + boutons de connexion
-  GET  /connect/{platform}   → redirige vers l'autorisation Zernio
+  GET  /connect/{platform}   → crée le profile Zernio si besoin, puis redirige vers l'autorisation
   GET  /connect/callback     → retour Zernio après connexion d'un compte
   POST /api/post             → publie sur les comptes sélectionnés
   GET  /logout
+
+⚠️ Le profile Zernio n'est créé qu'à la toute première connexion d'un compte
+   social (voir _ensure_profile) — l'inscription elle-même (email + nom de
+   boutique) est gérée entièrement par nous, sans dépendre du quota Zernio.
 """
 import os
 import secrets
@@ -70,6 +74,16 @@ def _base_url(request: Request) -> str:
     return str(request.base_url).rstrip("/").replace("http://", "https://")
 
 
+async def _ensure_profile(sess: dict) -> str:
+    """Crée le profile Zernio à la demande (1ère connexion d'un compte social)."""
+    if not sess.get("profile_id"):
+        profile = await zernio.create_profile(
+            name=sess["business_name"], description=f"ContentAI Studio — {sess['email']}"
+        )
+        sess["profile_id"] = profile["_id"]
+    return sess["profile_id"]
+
+
 @app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def home(request: Request):
     sess = _get_session(request)
@@ -81,11 +95,12 @@ async def home(request: Request):
 
 @app.post("/signup", response_class=HTMLResponse)
 async def signup(request: Request, business_name: str = Form(...), email: str = Form(...)):
-    profile = await zernio.create_profile(name=business_name, description=f"ContentAI Studio — {email}")
-
+    # Aucun appel à Zernio ici : le compte Studio (email + boutique) est géré
+    # entièrement en local. Le profile Zernio n'est créé qu'à la 1ère connexion
+    # d'un réseau social (voir /connect/{platform}).
     studio_user_id = secrets.token_hex(12)
     SESSIONS[studio_user_id] = {
-        "profile_id": profile["_id"],
+        "profile_id": None,
         "business_name": business_name,
         "email": email,
     }
@@ -100,7 +115,7 @@ async def dashboard(request: Request):
     if not sess:
         return RedirectResponse("/")
 
-    accounts = await zernio.list_accounts(sess["profile_id"])
+    accounts = await zernio.list_accounts(sess["profile_id"]) if sess.get("profile_id") else []
     return templates.TemplateResponse(
         "dashboard.html",
         {"request": request, "business_name": sess["business_name"], "accounts": accounts},
@@ -113,7 +128,7 @@ async def settings(request: Request):
     if not sess:
         return RedirectResponse("/")
 
-    accounts = await zernio.list_accounts(sess["profile_id"])
+    accounts = await zernio.list_accounts(sess["profile_id"]) if sess.get("profile_id") else []
     return templates.TemplateResponse(
         "settings.html",
         {"request": request, "business_name": sess["business_name"], "email": sess["email"], "accounts": accounts},
@@ -136,9 +151,10 @@ async def connect(request: Request, platform: str):
     if not sess:
         return RedirectResponse("/")
 
+    profile_id = await _ensure_profile(sess)
     redirect_url = f"{_base_url(request)}/connect/callback"
     auth_url = await zernio.get_connect_url(
-        platform=platform, profile_id=sess["profile_id"], redirect_url=redirect_url
+        platform=platform, profile_id=profile_id, redirect_url=redirect_url
     )
     return RedirectResponse(auth_url)
 
@@ -162,7 +178,7 @@ async def api_post(
     if not sess:
         return RedirectResponse("/", status_code=303)
 
-    accounts = await zernio.list_accounts(sess["profile_id"])
+    accounts = await zernio.list_accounts(sess["profile_id"]) if sess.get("profile_id") else []
     selected = [a for a in accounts if a["_id"] in account_ids]
 
     def _render(result):
