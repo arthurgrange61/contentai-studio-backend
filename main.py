@@ -315,6 +315,8 @@ async def styles_create(
     photo_count: int = Form(1),
     overlay_position: str = Form("first"),   # "none" | "first" | "last" | "all"
     music_enabled: str = Form("off"),
+    text_style: str = Form("outline"),       # "bubble" | "outline"
+    text_placement: str = Form("top"),       # "top" | "center" | "belly" | "bottom"
 ):
     user_id = _session_user_id(request)
     if not user_id:
@@ -331,6 +333,8 @@ async def styles_create(
             photo_count=photo_count,
             overlay_position=overlay_position,
             music_enabled=(music_enabled == "on"),
+            text_style=text_style,
+            text_placement=text_placement,
         ))
         await session.commit()
 
@@ -448,6 +452,8 @@ async def _run_batch(user_id: str, content_ids: list[str]):
             style_examples = (style.example_texts if style else []) or []
             overlay_position = style.overlay_position if style else "first"
             music_enabled = style.music_enabled if style else False
+            text_style = style.text_style if style else "outline"
+            text_placement = style.text_placement if style else "top"
 
             selected_accounts = [accounts_by_id[aid] for aid in item.account_ids if aid in accounts_by_id]
             if not selected_accounts:
@@ -477,7 +483,9 @@ async def _run_batch(user_id: str, content_ids: list[str]):
                     for i, photo_url in enumerate(item.photo_urls):
                         if i in overlay_indexes:
                             photo_bytes = (await client.get(photo_url)).content
-                            composed = imaging.overlay_text_on_image(photo_bytes, ai_result["overlay_text"])
+                            composed = imaging.overlay_text_on_image(
+                                photo_bytes, ai_result["overlay_text"], style=text_style, position=text_placement
+                            )
                             composed_urls.append(
                                 await zernio.upload_media(f"generated_{content_id}_{i}.jpg", "image/jpeg", composed)
                             )

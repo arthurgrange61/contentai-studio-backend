@@ -47,6 +47,25 @@
           </div>
         </div>
 
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Style du texte</label>
+            <select name="text_style" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none">
+              <option value="outline" selected>Contour noir (style story)</option>
+              <option value="bubble">Bulle arrondie (style TikTok natif)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Emplacement du texte</label>
+            <select name="text_placement" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none">
+              <option value="top" selected>Haut</option>
+              <option value="belly">Milieu-bas</option>
+              <option value="center">Centre</option>
+              <option value="bottom">Bas</option>
+            </select>
+          </div>
+        </div>
+
         <label class="flex items-center justify-between border border-gray-200 rounded-xl px-4 py-3 cursor-pointer">
           <span>
             <span class="text-sm font-semibold">🎵 Musique automatique</span>
@@ -82,6 +101,11 @@
           <span class="text-xs bg-gray-100 text-gray-600 rounded-full px-2.5 py-1">
             Texte : {{ {'first':'1ère photo','last':'dernière photo','all':'toutes les photos','none':'aucune'}[style.overlay_position] }}
           </span>
+          {% if style.overlay_position != 'none' %}
+          <span class="text-xs bg-gray-100 text-gray-600 rounded-full px-2.5 py-1">
+            {{ {'outline':'Contour noir','bubble':'Bulle arrondie'}[style.text_style] }} · {{ {'top':'haut','center':'centre','belly':'milieu-bas','bottom':'bas'}[style.text_placement] }}
+          </span>
+          {% endif %}
           {% if style.music_enabled %}
           <span class="text-xs bg-indigo-100 text-indigo-700 rounded-full px-2.5 py-1">🎵 Musique auto</span>
           {% endif %}
