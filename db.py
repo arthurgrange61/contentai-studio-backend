@@ -123,9 +123,23 @@ class GeneratedContent(Base):
     user: Mapped[StudioUser] = relationship(back_populates="contents")
 
 
+
+# Migration additive minimaliste : create_all() ne modifie jamais une table
+# déjà existante, donc les colonnes ajoutées après coup doivent être posées
+# à la main. Chaque instruction est sans danger à rejouer (IF NOT EXISTS).
+_MIGRATIONS = [
+    "ALTER TABLE content_styles ADD COLUMN IF NOT EXISTS photo_count INTEGER DEFAULT 1",
+    "ALTER TABLE content_styles ADD COLUMN IF NOT EXISTS overlay_position VARCHAR DEFAULT 'first'",
+    "ALTER TABLE content_styles ADD COLUMN IF NOT EXISTS music_enabled BOOLEAN DEFAULT false",
+    "ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS account_ids JSON DEFAULT '[]'::json",
+]
+
+
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        for statement in _MIGRATIONS:
+            await conn.exec_driver_sql(statement)
 
 
 def get_session() -> AsyncSession:
