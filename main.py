@@ -29,6 +29,10 @@ Routes principales — 3 espaces : Bibliothèque, Styles, Publication.
   POST /posting/generate     → génère les prochaines occurrences en tâche de fond
   GET  /queue                → suivi de la file de contenus générés/programmés
 
+  POST /billing/checkout     → crée une session Stripe Checkout pour un plan
+  GET  /billing/portal       → ouvre le Customer Portal Stripe (gérer/annuler)
+  POST /billing/webhook      → webhook Stripe (statut d'abonnement à jour)
+
   GET  /logout
 
 ⚠️ Le profile Zernio n'est créé qu'à la toute première connexion d'un compte
@@ -40,8 +44,18 @@ import os
 import random
 from contextlib import asynccontextmanager
 
-import httpx
 from dotenv import load_dotenv
+
+# Doit être chargé AVANT nos modules locaux : plusieurs d'entre eux (db.py,
+# billing.py...) lisent des variables d'environnement dès l'import (création
+# du moteur SQLAlchemy, clé API Stripe...). Sur Render ça ne se voyait pas
+# (les variables sont injectées directement dans l'environnement du process),
+# mais en local, sans .env déjà chargé, ces modules démarraient avec des
+# valeurs vides.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
+
+import httpx
 from fastapi import BackgroundTasks, FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -49,12 +63,10 @@ from fastapi.templating import Jinja2Templates
 from itsdangerous import URLSafeSerializer, BadSignature
 
 import ai_writer
+import billing
 import db
 import imaging
 import zernio
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 
 @asynccontextmanager
@@ -151,7 +163,15 @@ async def settings(request: Request):
         accounts = await zernio.list_accounts(user.profile_id) if user.profile_id else []
         return templates.TemplateResponse(
             "settings.html",
-            {"request": request, "business_name": user.business_name, "email": user.email, "accounts": accounts},
+            {
+                "request": request,
+                "business_name": user.business_name,
+                "email": user.email,
+                "accounts": accounts,
+                "plan": user.plan,
+                "subscription_status": user.subscription_status,
+                "plans": billing.PLANS,
+            },
         )
 
 
@@ -555,6 +575,94 @@ async def queue_page(request: Request):
             "queue.html",
             {"request": request, "business_name": user.business_name, "contents": contents, "pending": pending},
         )
+
+
+# ─── Facturation (Stripe) ────────────────────────────────────────────────────
+@app.post("/billing/checkout")
+async def billing_checkout(request: Request, plan: str = Form(...)):
+    user_id = _session_user_id(request)
+    if not user_id or plan not in billing.PLANS:
+        return RedirectResponse("/", status_code=303)
+
+    async with db.get_session() as session:
+        user = await db.get_user(session, user_id)
+        if not user:
+            return RedirectResponse("/", status_code=303)
+
+        base = _base_url(request)
+        checkout_url = billing.create_checkout_session(
+            plan=plan,
+            customer_id=user.stripe_customer_id,
+            customer_email=user.email,
+            success_url=f"{base}/settings?checkout=success",
+            cancel_url=f"{base}/settings?checkout=cancelled",
+        )
+    return RedirectResponse(checkout_url, status_code=303)
+
+
+@app.get("/billing/portal")
+async def billing_portal(request: Request):
+    user_id = _session_user_id(request)
+    if not user_id:
+        return RedirectResponse("/")
+
+    async with db.get_session() as session:
+        user = await db.get_user(session, user_id)
+        if not user or not user.stripe_customer_id:
+            return RedirectResponse("/settings")
+
+        portal_url = billing.create_portal_session(
+            customer_id=user.stripe_customer_id,
+            return_url=f"{_base_url(request)}/settings",
+        )
+    return RedirectResponse(portal_url, status_code=303)
+
+
+@app.post("/billing/webhook")
+async def billing_webhook(request: Request):
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+
+    try:
+        event = billing.construct_webhook_event(payload, sig_header)
+    except Exception as e:
+        return HTMLResponse(f"Invalid webhook: {e}", status_code=400)
+
+    async with db.get_session() as session:
+        if event["type"] == "checkout.session.completed":
+            checkout_session = event["data"]["object"]
+            customer_id = checkout_session.get("customer")
+            customer_email = (checkout_session.get("customer_details") or {}).get("email")
+
+            user = None
+            if customer_id:
+                user = await db.get_user_by_stripe_customer(session, customer_id)
+            if not user and customer_email:
+                user = await db.get_user_by_email(session, customer_email)
+
+            if user:
+                user.stripe_customer_id = customer_id
+                user.stripe_subscription_id = checkout_session.get("subscription")
+                user.subscription_status = "active"
+                plan = (checkout_session.get("metadata") or {}).get("plan")
+                if plan:
+                    user.plan = plan
+                await session.commit()
+
+        elif event["type"] in ("customer.subscription.updated", "customer.subscription.deleted"):
+            sub = event["data"]["object"]
+            user = await db.get_user_by_stripe_customer(session, sub.get("customer"))
+            if user:
+                plan = (sub.get("metadata") or {}).get("plan")
+                if not plan:
+                    price_id = sub["items"]["data"][0]["price"]["id"] if sub.get("items", {}).get("data") else None
+                    plan = billing.plan_from_price_id(price_id) if price_id else None
+                if plan:
+                    user.plan = plan
+                user.subscription_status = "active" if sub.get("status") == "active" else sub.get("status", "inactive")
+                await session.commit()
+
+    return {"received": True}
 
 
 @app.api_route("/cgu", methods=["GET", "HEAD"], response_class=HTMLResponse)

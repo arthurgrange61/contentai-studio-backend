@@ -49,11 +49,28 @@
 
     <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-7">
       <h2 class="text-lg font-semibold mb-1">Abonnement</h2>
-      <p class="text-sm text-gray-500 mb-4">Gérez votre formule et vos comptes inclus.</p>
-      <div class="flex items-center justify-between border border-gray-100 rounded-xl px-4 py-3">
-        <span class="text-sm text-gray-600">Formule actuelle : <span class="font-medium">Essai</span></span>
-        <a href="/#tarifs" class="text-sm font-medium text-indigo-600 hover:underline">Voir les formules →</a>
+
+      {% if subscription_status == 'active' %}
+      <p class="text-sm text-gray-500 mb-4">
+        Formule actuelle : <span class="font-medium text-gray-900">{{ plans[plan].label if plan in plans else plan }}</span>
+        <span class="text-green-600">● Active</span>
+      </p>
+      <a href="/billing/portal" class="inline-block text-sm font-medium text-white grad-bg rounded-xl px-5 py-2.5">
+        Gérer mon abonnement
+      </a>
+      {% else %}
+      <p class="text-sm text-gray-500 mb-5">Choisis une formule pour activer la publication automatique.</p>
+      <div class="grid sm:grid-cols-3 gap-3">
+        {% for key, cfg in plans.items() %}
+        <form method="post" action="/billing/checkout" class="border border-gray-200 rounded-xl p-4 flex flex-col">
+          <input type="hidden" name="plan" value="{{ key }}"/>
+          <span class="font-semibold text-sm mb-1">{{ cfg.label }}</span>
+          <span class="text-xs text-gray-500 mb-4">{{ cfg.price_display }}</span>
+          <button type="submit" class="mt-auto grad-bg text-white text-sm font-semibold rounded-lg py-2">Choisir</button>
+        </form>
+        {% endfor %}
       </div>
+      {% endif %}
     </div>
   </main>
 

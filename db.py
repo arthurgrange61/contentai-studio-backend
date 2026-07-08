@@ -46,6 +46,11 @@ class StudioUser(Base):
     profile_id: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
 
+    stripe_customer_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    plan: Mapped[str] = mapped_column(String, default="none")                   # none | starter | pro | business
+    subscription_status: Mapped[str] = mapped_column(String, default="inactive")  # inactive | active | past_due | canceled
+
     photos: Mapped[list["Photo"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     styles: Mapped[list["ContentStyle"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     contents: Mapped[list["GeneratedContent"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -132,6 +137,10 @@ _MIGRATIONS = [
     "ALTER TABLE content_styles ADD COLUMN IF NOT EXISTS overlay_position VARCHAR DEFAULT 'first'",
     "ALTER TABLE content_styles ADD COLUMN IF NOT EXISTS music_enabled BOOLEAN DEFAULT false",
     "ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS account_ids JSON DEFAULT '[]'::json",
+    "ALTER TABLE studio_users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR",
+    "ALTER TABLE studio_users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR",
+    "ALTER TABLE studio_users ADD COLUMN IF NOT EXISTS plan VARCHAR DEFAULT 'none'",
+    "ALTER TABLE studio_users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR DEFAULT 'inactive'",
 ]
 
 
@@ -153,6 +162,11 @@ async def get_user(session: AsyncSession, user_id: str) -> StudioUser | None:
 
 async def get_user_by_email(session: AsyncSession, email: str) -> StudioUser | None:
     r = await session.execute(select(StudioUser).where(StudioUser.email == email))
+    return r.scalar_one_or_none()
+
+
+async def get_user_by_stripe_customer(session: AsyncSession, customer_id: str) -> StudioUser | None:
+    r = await session.execute(select(StudioUser).where(StudioUser.stripe_customer_id == customer_id))
     return r.scalar_one_or_none()
 
 
