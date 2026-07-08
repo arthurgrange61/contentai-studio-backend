@@ -206,6 +206,8 @@ async def connect(request: Request, platform: str):
         user = await db.get_user(session, user_id)
         if not user:
             return RedirectResponse("/")
+        if user.subscription_status != "active":
+            return RedirectResponse("/settings?subscribe_required=1")
         profile_id = await _ensure_profile(session, user)
 
     redirect_url = f"{_base_url(request)}/connect/callback"
