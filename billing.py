@@ -25,12 +25,8 @@ PLANS = {
         "coupon_env": None,
         "price_display": "59,99 €/mois",
     },
-    "business": {
-        "label": "Business",
-        "price_id_env": "STRIPE_PRICE_BUSINESS",
-        "coupon_env": None,
-        "price_display": "149,99 €/mois",
-    },
+    # "business" retiré temporairement de l'offre (le produit/prix Stripe existe
+    # toujours, STRIPE_PRICE_BUSINESS — on peut le remettre plus tard).
 }
 
 

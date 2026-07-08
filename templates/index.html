@@ -136,51 +136,55 @@
   </section>
 
   <!-- Tarifs -->
-  <section id="tarifs" class="max-w-6xl mx-auto px-6 py-20">
+  <section id="tarifs" class="max-w-4xl mx-auto px-6 py-20">
     <h2 class="text-3xl font-bold text-center mb-3">Un tarif simple, sans surprise</h2>
-    <p class="text-gray-500 text-center mb-14">Payez selon le nombre de comptes connectés. Annulable à tout moment.</p>
-    <div class="grid md:grid-cols-3 gap-6 items-stretch">
+    <p class="text-gray-500 text-center mb-14">Payez selon le nombre de comptes connectés. Annulable à tout moment. Clique sur une offre pour le détail.</p>
+    <div class="grid md:grid-cols-2 gap-6 items-start">
 
-      <div class="border border-gray-200 rounded-2xl p-7 flex flex-col">
-        <h3 class="font-semibold text-lg mb-1">Starter</h3>
-        <p class="text-sm text-gray-500 mb-5">Pour lancer une première marque.</p>
-        <div class="mb-1"><span class="text-3xl font-bold">9,99 €</span><span class="text-gray-400 text-sm"> le 1<sup>er</sup> mois</span></div>
-        <p class="text-xs text-gray-400 mb-6">puis 29,99 €/mois</p>
-        <ul class="text-sm text-gray-600 space-y-2 mb-7">
-          <li>✓ 1 compte connecté</li>
-          <li>✓ ~30 publications / mois</li>
-          <li>✓ Programmation & récurrence</li>
-        </ul>
-        <a href="#inscription" class="mt-auto text-center border border-gray-300 rounded-xl py-2.5 font-semibold hover:border-gray-900">Commencer</a>
+      <div class="border border-gray-200 rounded-2xl p-7 flex flex-col w-full">
+        <button type="button" onclick="toggleDetails('detail-starter', this)" class="text-left w-full">
+          <h3 class="font-semibold text-lg mb-1">Starter</h3>
+          <p class="text-sm text-gray-500 mb-5">Pour lancer une première marque.</p>
+          <div class="mb-1"><span class="text-3xl font-bold">9,99 €</span><span class="text-gray-400 text-sm"> le 1<sup>er</sup> mois</span></div>
+          <p class="text-xs text-gray-400 mb-6">puis 29,99 €/mois</p>
+          <ul class="text-sm text-gray-600 space-y-2 mb-4">
+            <li>✓ 1 compte connecté</li>
+            <li>✓ ~30 publications / mois</li>
+            <li>✓ Programmation & récurrence</li>
+          </ul>
+          <span class="text-xs font-medium text-indigo-600 toggle-label">En savoir plus ↓</span>
+        </button>
+        <div id="detail-starter" class="hidden mt-4 pt-4 border-t border-gray-100 text-sm text-gray-600 space-y-2">
+          <p>Idéal pour tester ContentAI Studio sur une première boutique ou marque, sans engagement lourd.</p>
+          <p>Connecte <strong>1 compte</strong> (TikTok, Instagram ou Facebook) et publie environ une fois par jour grâce à la bibliothèque de photos et aux styles de contenu générés par IA.</p>
+          <p>Le premier mois est facturé 9,99 € pour découvrir l'outil en conditions réelles, puis l'abonnement passe à 29,99 €/mois, résiliable à tout moment depuis tes paramètres.</p>
+        </div>
+        <a href="#inscription" class="mt-5 text-center border border-gray-300 rounded-xl py-2.5 font-semibold hover:border-gray-900">Commencer</a>
       </div>
 
-      <div class="border-2 border-indigo-500 rounded-2xl p-7 flex flex-col relative shadow-lg">
+      <div class="border-2 border-indigo-500 rounded-2xl p-7 flex flex-col relative shadow-lg w-full">
         <span class="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold text-white grad-bg px-3 py-1 rounded-full">Le plus choisi</span>
-        <h3 class="font-semibold text-lg mb-1">Pro</h3>
-        <p class="text-sm text-gray-500 mb-5">Pour être présent partout.</p>
-        <div class="mb-1"><span class="text-3xl font-bold">59,99 €</span><span class="text-gray-400 text-sm">/mois</span></div>
-        <p class="text-xs text-gray-400 mb-6">tout inclus</p>
-        <ul class="text-sm text-gray-600 space-y-2 mb-7">
-          <li>✓ 3 comptes connectés</li>
-          <li>✓ Publications illimitées</li>
-          <li>✓ Programmation & récurrence</li>
-          <li>✓ Multi-plateformes simultané</li>
-        </ul>
-        <a href="#inscription" class="mt-auto text-center grad-bg text-white rounded-xl py-2.5 font-semibold">Commencer</a>
+        <button type="button" onclick="toggleDetails('detail-pro', this)" class="text-left w-full">
+          <h3 class="font-semibold text-lg mb-1">Pro</h3>
+          <p class="text-sm text-gray-500 mb-5">Pour être présent partout.</p>
+          <div class="mb-1"><span class="text-3xl font-bold">59,99 €</span><span class="text-gray-400 text-sm">/mois</span></div>
+          <p class="text-xs text-gray-400 mb-6">tout inclus</p>
+          <ul class="text-sm text-gray-600 space-y-2 mb-4">
+            <li>✓ 3 comptes connectés</li>
+            <li>✓ Publications illimitées</li>
+            <li>✓ Programmation & récurrence</li>
+            <li>✓ Multi-plateformes simultané</li>
+          </ul>
+          <span class="text-xs font-medium text-indigo-600 toggle-label">En savoir plus ↓</span>
+        </button>
+        <div id="detail-pro" class="hidden mt-4 pt-4 border-t border-indigo-100 text-sm text-gray-600 space-y-2">
+          <p>Pensé pour les marques qui publient régulièrement sur plusieurs réseaux à la fois.</p>
+          <p>Connecte jusqu'à <strong>3 comptes</strong> (par exemple TikTok + Instagram + Facebook) sans limite de publications, avec planning récurrent et styles de contenu illimités.</p>
+          <p>Facturé 59,99 €/mois, résiliable à tout moment depuis tes paramètres — aucun engagement.</p>
+        </div>
+        <a href="#inscription" class="mt-5 text-center grad-bg text-white rounded-xl py-2.5 font-semibold">Commencer</a>
       </div>
 
-      <div class="border border-gray-200 rounded-2xl p-7 flex flex-col">
-        <h3 class="font-semibold text-lg mb-1">Business</h3>
-        <p class="text-sm text-gray-500 mb-5">Pour gérer plusieurs marques.</p>
-        <div class="mb-1"><span class="text-3xl font-bold">149,99 €</span><span class="text-gray-400 text-sm">/mois</span></div>
-        <p class="text-xs text-gray-400 mb-6">multi-clients</p>
-        <ul class="text-sm text-gray-600 space-y-2 mb-7">
-          <li>✓ 10 comptes connectés</li>
-          <li>✓ Publications illimitées</li>
-          <li>✓ Support prioritaire</li>
-        </ul>
-        <a href="#inscription" class="mt-auto text-center border border-gray-300 rounded-xl py-2.5 font-semibold hover:border-gray-900">Commencer</a>
-      </div>
     </div>
   </section>
 
@@ -200,5 +204,14 @@
     </div>
   </footer>
 
+  <script>
+    function toggleDetails(id, btn) {
+      const el = document.getElementById(id);
+      const open = !el.classList.contains('hidden');
+      el.classList.toggle('hidden');
+      const label = btn.querySelector('.toggle-label');
+      if (label) label.textContent = open ? 'En savoir plus ↓' : 'Réduire ↑';
+    }
+  </script>
 </body>
 </html>
