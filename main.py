@@ -21,17 +21,20 @@ import os
 import secrets
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from itsdangerous import URLSafeSerializer, BadSignature
 
 import zernio
 
-load_dotenv()
+# Chemin absolu : le .env est chargé quel que soit le dossier de lancement
+# (sur Render les variables sont injectées directement, load_dotenv est alors un no-op).
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 app = FastAPI(title="ContentAI Studio — Zernio integration")
-templates = Jinja2Templates(directory="templates")
+TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "dev-secret-change-me")
 signer = URLSafeSerializer(SESSION_SECRET, salt="contentai-studio-session")
@@ -140,12 +143,20 @@ async def connect(request: Request, platform: str):
     return RedirectResponse(auth_url)
 
 
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"}
+
+
 @app.post("/api/post", response_class=HTMLResponse)
 async def api_post(
     request: Request,
-    account_ids: list[str] = Form(...),
+    account_ids: list[str] = Form(default=[]),
     caption: str = Form(...),
-    photo_urls: str = Form(...),
+    photos: list[UploadFile] = File(default=[]),
+    schedule_mode: str = Form("now"),          # "now" | "scheduled"
+    scheduled_for: str = Form(""),
+    timezone: str = Form("Europe/Paris"),
+    recurrence: str = Form("none"),            # "none" | "week" | "2week" | "month"
+    auto_add_music: str = Form("off"),
 ):
     sess = _get_session(request)
     if not sess:
@@ -154,15 +165,56 @@ async def api_post(
     accounts = await zernio.list_accounts(sess["profile_id"])
     selected = [a for a in accounts if a["_id"] in account_ids]
 
-    urls = [u.strip() for u in photo_urls.replace("\n", ",").split(",") if u.strip()]
+    def _render(result):
+        return templates.TemplateResponse(
+            "dashboard.html",
+            {"request": request, "business_name": sess["business_name"], "accounts": accounts, "result": result},
+        )
+
+    if not selected:
+        return _render({"error": {"message": "Sélectionne au moins un compte cible."}})
+
+    # Téléverse chaque photo chez Zernio et récupère son URL publique.
+    real_photos = [p for p in photos if p and p.filename]
+    if not real_photos:
+        return _render({"error": {"message": "Ajoute au moins une photo."}})
+    if len(real_photos) > 10:
+        return _render({"error": {"message": "10 photos maximum par carrousel."}})
+
+    media_urls = []
+    for photo in real_photos:
+        content_type = (photo.content_type or "image/jpeg").lower()
+        if content_type not in ALLOWED_IMAGE_TYPES:
+            return _render({"error": {"message": f"Format non supporté : {content_type}. Utilise JPG, PNG, WEBP ou GIF."}})
+        data = await photo.read()
+        try:
+            url = await zernio.upload_media(photo.filename, content_type, data)
+        except Exception as e:
+            return _render({"error": {"message": f"Échec de l'envoi d'une photo : {e}"}})
+        media_urls.append(url)
+
     result = await zernio.create_post(
-        profile_id=sess["profile_id"], accounts=selected, content=caption, media_urls=urls,
+        profile_id=sess["profile_id"],
+        accounts=selected,
+        content=caption,
+        media_urls=media_urls,
+        scheduled_for=(scheduled_for if schedule_mode == "scheduled" else None),
+        timezone=timezone,
+        auto_add_music=(auto_add_music == "on"),
+        recurrence=recurrence,
     )
 
-    return templates.TemplateResponse(
-        "dashboard.html",
-        {"request": request, "business_name": sess["business_name"], "accounts": accounts, "result": result},
-    )
+    return _render(result)
+
+
+@app.api_route("/cgu", methods=["GET", "HEAD"], response_class=HTMLResponse)
+async def cgu(request: Request):
+    return templates.TemplateResponse("cgu.html", {"request": request})
+
+
+@app.api_route("/confidentialite", methods=["GET", "HEAD"], response_class=HTMLResponse)
+async def confidentialite(request: Request):
+    return templates.TemplateResponse("confidentialite.html", {"request": request})
 
 
 @app.api_route("/logout", methods=["GET", "HEAD"])

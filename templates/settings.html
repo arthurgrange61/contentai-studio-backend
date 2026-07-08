@@ -5,45 +5,76 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ContentAI Studio — Paramètres</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>* { font-family: system-ui, -apple-system, sans-serif; }</style>
+  <style>
+    * { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .grad-bg { background: linear-gradient(90deg,#6366f1,#a855f7,#ec4899); }
+  </style>
 </head>
-<body class="min-h-screen bg-white text-gray-900">
-  <div class="max-w-xl mx-auto px-6 py-10">
+<body class="bg-gray-50 text-gray-900 antialiased min-h-screen">
 
-    <div class="flex items-center justify-between mb-8">
-      <a href="/dashboard" class="text-xs text-gray-400 hover:text-gray-900">← Retour</a>
-      <a href="/logout" class="text-xs text-gray-400 hover:text-gray-900">Déconnexion</a>
+  <header class="border-b border-gray-100 bg-white">
+    <div class="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-2 font-semibold">
+        <span class="w-7 h-7 rounded-lg grad-bg flex items-center justify-center text-white text-sm">◆</span>
+        ContentAI <span class="text-gray-400 font-normal">Studio</span>
+      </div>
+      <div class="flex items-center gap-5 text-sm">
+        <a href="/dashboard" class="text-gray-600 hover:text-gray-900 font-medium">← Composer</a>
+        <a href="/logout" class="text-gray-400 hover:text-gray-900">Déconnexion</a>
+      </div>
     </div>
+  </header>
 
-    <h1 class="text-xl font-semibold mb-1">Paramètres</h1>
-    <p class="text-sm text-gray-500 mb-8">{{ business_name }} — {{ email }}</p>
+  <main class="max-w-3xl mx-auto px-6 py-10">
+    <h1 class="text-2xl font-bold mb-1">Paramètres</h1>
+    <p class="text-sm text-gray-500 mb-8">{{ business_name }} · {{ email }}</p>
 
-    <div class="border border-gray-200 rounded-xl p-6">
-      <h2 class="text-lg font-semibold mb-4">Comptes connectés</h2>
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-7 mb-6">
+      <h2 class="text-lg font-semibold mb-1">Comptes connectés</h2>
+      <p class="text-sm text-gray-500 mb-5">Reliez vos réseaux pour pouvoir publier depuis le composer.</p>
 
       {% if accounts %}
-      <ul class="space-y-2 mb-5">
+      <ul class="space-y-2 mb-6">
         {% for acc in accounts %}
-        <li class="flex items-center justify-between text-sm border border-gray-100 rounded-lg px-3 py-2">
-          <span>{{ acc.platform }} — @{{ acc.username or acc.displayName }}</span>
-          <span class="{{ 'text-green-600' if acc.isActive else 'text-red-500' }} text-xs">
+        <li class="flex items-center justify-between border border-gray-100 rounded-xl px-4 py-3">
+          <span class="text-sm"><span class="font-medium capitalize">{{ acc.platform }}</span>
+            <span class="text-gray-400">— @{{ acc.username or acc.displayName }}</span></span>
+          <span class="{{ 'text-green-600' if acc.isActive else 'text-red-500' }} text-xs font-medium">
             {{ '● Actif' if acc.isActive else '● Déconnecté' }}
           </span>
         </li>
         {% endfor %}
       </ul>
       {% else %}
-      <p class="text-sm text-gray-500 mb-5">Aucun compte connecté pour l'instant. Connecte un réseau pour pouvoir publier.</p>
+      <p class="text-sm text-gray-400 border border-dashed border-gray-200 rounded-xl px-4 py-4 mb-6 text-center">
+        Aucun compte connecté pour l'instant.
+      </p>
       {% endif %}
 
       <div class="flex flex-wrap gap-2">
-        <a href="/connect/tiktok" class="px-4 py-2 rounded-lg bg-black text-white text-sm font-medium hover:bg-gray-800">+ TikTok</a>
-        <a href="/connect/instagram" class="px-4 py-2 rounded-lg text-white text-sm font-medium"
-           style="background: linear-gradient(45deg, #405DE6, #833AB4, #E1306C);">+ Instagram</a>
-        <a href="/connect/facebook" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">+ Facebook</a>
+        <a href="/connect/tiktok" class="px-4 py-2.5 rounded-xl bg-black text-white text-sm font-medium hover:bg-gray-800">+ TikTok</a>
+        <a href="/connect/instagram" class="px-4 py-2.5 rounded-xl text-white text-sm font-medium"
+           style="background: linear-gradient(45deg,#405DE6,#833AB4,#E1306C);">+ Instagram</a>
+        <a href="/connect/facebook" class="px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">+ Facebook</a>
       </div>
     </div>
 
-  </div>
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-7">
+      <h2 class="text-lg font-semibold mb-1">Abonnement</h2>
+      <p class="text-sm text-gray-500 mb-4">Gérez votre formule et vos comptes inclus.</p>
+      <div class="flex items-center justify-between border border-gray-100 rounded-xl px-4 py-3">
+        <span class="text-sm text-gray-600">Formule actuelle : <span class="font-medium">Essai</span></span>
+        <a href="/#tarifs" class="text-sm font-medium text-indigo-600 hover:underline">Voir les formules →</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-gray-100 mt-10">
+    <div class="max-w-3xl mx-auto px-6 py-6 flex gap-6 text-xs text-gray-400">
+      <a href="/cgu" class="hover:text-gray-700">Conditions d'utilisation</a>
+      <a href="/confidentialite" class="hover:text-gray-700">Confidentialité</a>
+    </div>
+  </footer>
+
 </body>
 </html>

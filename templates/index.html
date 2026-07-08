@@ -3,49 +3,199 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ContentAI Studio — Créez votre compte</title>
+  <title>ContentAI Studio — Publiez sur tous vos réseaux en un clic</title>
+  <meta name="description" content="Créez et publiez vos carrousels photo sur TikTok, Instagram et Facebook automatiquement. Programmation, récurrence et publication multi-comptes." />
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>* { font-family: system-ui, -apple-system, sans-serif; }</style>
+  <style>
+    * { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .grad-text { background: linear-gradient(90deg,#6366f1,#a855f7,#ec4899); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .grad-bg { background: linear-gradient(90deg,#6366f1,#a855f7,#ec4899); }
+    .grad-bg:hover { filter: brightness(1.07); }
+    .blob { position: absolute; border-radius: 9999px; filter: blur(80px); opacity: .35; z-index: 0; }
+  </style>
 </head>
-<body class="min-h-screen bg-white text-gray-900 flex items-center justify-center px-6">
-  <div class="w-full max-w-md">
-    <div class="flex items-center justify-center gap-2 mb-8">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-      <span class="font-semibold text-lg">ContentAI Studio</span>
-    </div>
+<body class="bg-white text-gray-900 antialiased">
 
-    <h1 class="text-2xl font-semibold text-center mb-2">Créez et publiez vos carrousels automatiquement</h1>
-    <p class="text-sm text-gray-500 text-center mb-8">
-      Connectez TikTok, Instagram et Facebook en un clic, sans configuration technique.
-    </p>
-
-    {% if configured %}
-    <form method="post" action="/signup" class="border border-gray-200 rounded-xl p-6 space-y-4">
-      <div>
-        <label class="block text-xs font-medium text-gray-500 mb-1">Nom de votre boutique / marque</label>
-        <input name="business_name" required placeholder="La Bijouterie d'Émilie"
-          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-gray-900 outline-none"/>
+  <!-- Header -->
+  <header class="sticky top-0 z-30 border-b border-gray-100 bg-white/80 backdrop-blur">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-2 font-semibold">
+        <span class="w-7 h-7 rounded-lg grad-bg flex items-center justify-center text-white text-sm">◆</span>
+        ContentAI <span class="text-gray-400 font-normal">Studio</span>
       </div>
-      <div>
-        <label class="block text-xs font-medium text-gray-500 mb-1">Votre e-mail</label>
-        <input type="email" name="email" required placeholder="vous@exemple.com"
-          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-gray-900 outline-none"/>
-      </div>
-      <button type="submit" class="w-full py-3 rounded-xl bg-black text-white font-semibold hover:bg-gray-800 transition-all">
-        Continuer
-      </button>
-    </form>
-    <p class="text-xs text-gray-400 text-center mt-4">
-      En continuant, vous acceptez d'autoriser ContentAI Studio à publier sur vos comptes à votre demande.
-    </p>
-    {% else %}
-    <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-left">
-      <p class="text-sm font-medium text-amber-800 mb-1">⚙️ Configuration requise</p>
-      <p class="text-xs text-amber-700">
-        Renseigne <code>ZERNIO_API_KEY</code> dans ton fichier <code>.env</code>, puis recharge la page.
-      </p>
+      <nav class="hidden sm:flex items-center gap-8 text-sm text-gray-500">
+        <a href="#fonctionnement" class="hover:text-gray-900">Fonctionnement</a>
+        <a href="#tarifs" class="hover:text-gray-900">Tarifs</a>
+        <a href="#inscription" class="hover:text-gray-900">Se connecter</a>
+      </nav>
+      <a href="#inscription" class="text-sm font-semibold text-white grad-bg rounded-lg px-4 py-2">Commencer</a>
     </div>
-    {% endif %}
-  </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="relative overflow-hidden">
+    <div class="blob w-[420px] h-[420px] bg-indigo-400 -top-20 -left-20"></div>
+    <div class="blob w-[420px] h-[420px] bg-pink-400 top-10 right-0"></div>
+    <div class="relative max-w-6xl mx-auto px-6 pt-20 pb-16 grid lg:grid-cols-2 gap-12 items-center">
+      <div>
+        <span class="inline-block text-xs font-medium text-gray-600 bg-gray-100 rounded-full px-3 py-1 mb-5">
+          TikTok · Instagram · Facebook
+        </span>
+        <h1 class="text-4xl sm:text-5xl font-bold leading-tight mb-5">
+          Publiez sur tous vos réseaux <span class="grad-text">en un seul clic</span>.
+        </h1>
+        <p class="text-lg text-gray-500 mb-8 max-w-md">
+          ContentAI Studio crée et publie vos carrousels photo sur TikTok, Instagram et Facebook —
+          programmés, récurrents, sans configuration technique.
+        </p>
+        <div class="flex items-center gap-4">
+          <a href="#inscription" class="text-white font-semibold grad-bg rounded-xl px-6 py-3">Essayer gratuitement</a>
+          <a href="#fonctionnement" class="text-gray-600 font-medium hover:text-gray-900">Voir comment →</a>
+        </div>
+        <p class="text-xs text-gray-400 mt-4">Premier mois à 9,99 € · sans engagement · annulable à tout moment</p>
+      </div>
+
+      <!-- Signup card -->
+      <div id="inscription" class="relative bg-white border border-gray-200 rounded-2xl shadow-xl p-7">
+        <h2 class="text-lg font-semibold mb-1">Créez votre compte</h2>
+        <p class="text-sm text-gray-500 mb-6">Aucune carte requise pour découvrir l'outil.</p>
+        {% if configured %}
+        <form method="post" action="/signup" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Nom de votre boutique / marque</label>
+            <input name="business_name" required placeholder="La Bijouterie d'Émilie"
+              class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"/>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Votre e-mail</label>
+            <input type="email" name="email" required placeholder="vous@exemple.com"
+              class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"/>
+          </div>
+          <button type="submit" class="w-full grad-bg text-white font-semibold rounded-xl py-3">Continuer →</button>
+        </form>
+        <p class="text-[11px] text-gray-400 mt-4 text-center">
+          En continuant, vous acceptez nos
+          <a href="/cgu" class="underline">CGU</a> et notre
+          <a href="/confidentialite" class="underline">politique de confidentialité</a>.
+        </p>
+        {% else %}
+        <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p class="text-sm font-medium text-amber-800 mb-1">⚙️ Configuration requise</p>
+          <p class="text-xs text-amber-700">Renseigne <code>ZERNIO_API_KEY</code> côté serveur puis recharge.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <!-- Comment ça marche -->
+  <section id="fonctionnement" class="max-w-6xl mx-auto px-6 py-20">
+    <h2 class="text-3xl font-bold text-center mb-3">Trois étapes, c'est tout</h2>
+    <p class="text-gray-500 text-center mb-14">Du premier clic à la publication, sans compétence technique.</p>
+    <div class="grid md:grid-cols-3 gap-6">
+      {% set steps = [
+        ('1','Connectez vos comptes','Reliez TikTok, Instagram et Facebook en un clic depuis les paramètres. Vos identifiants ne transitent jamais par nous.'),
+        ('2','Déposez vos photos','Glissez vos images, écrivez une légende, choisissez la date et la récurrence.'),
+        ('3','On publie pour vous','Le carrousel part sur tous les comptes sélectionnés, à la bonne heure, en boucle si vous le souhaitez.')
+      ] %}
+      {% for num, title, desc in steps %}
+      <div class="bg-white border border-gray-100 rounded-2xl p-7 shadow-sm">
+        <div class="w-10 h-10 rounded-xl grad-bg text-white font-bold flex items-center justify-center mb-5">{{ num }}</div>
+        <h3 class="font-semibold mb-2">{{ title }}</h3>
+        <p class="text-sm text-gray-500 leading-relaxed">{{ desc }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Fonctionnalités -->
+  <section class="bg-gray-50 border-y border-gray-100">
+    <div class="max-w-6xl mx-auto px-6 py-20">
+      <h2 class="text-3xl font-bold text-center mb-14">Tout ce qu'il faut pour publier sans effort</h2>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {% set feats = [
+          ('🖼️','Upload direct','Déposez vos photos depuis votre appareil — plus besoin de liens ni d\'hébergement.'),
+          ('📅','Programmation','Choisissez le jour et l\'heure exacts de publication, dans votre fuseau horaire.'),
+          ('🔁','Récurrence','Republiez automatiquement chaque semaine ou chaque mois, sans y penser.'),
+          ('🎵','Musique auto','Laissez TikTok ajouter une musique tendance à vos carrousels, ou désactivez-la.'),
+          ('🎯','Multi-comptes','Publiez sur TikTok, Instagram et Facebook en une seule fois.'),
+          ('🔒','Vous gardez le contrôle','Déconnectez un réseau ou annulez à tout moment depuis vos paramètres.')
+        ] %}
+        {% for icon, title, desc in feats %}
+        <div class="bg-white border border-gray-100 rounded-2xl p-6">
+          <div class="text-2xl mb-3">{{ icon }}</div>
+          <h3 class="font-semibold mb-1.5">{{ title }}</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">{{ desc }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <!-- Tarifs -->
+  <section id="tarifs" class="max-w-6xl mx-auto px-6 py-20">
+    <h2 class="text-3xl font-bold text-center mb-3">Un tarif simple, sans surprise</h2>
+    <p class="text-gray-500 text-center mb-14">Payez selon le nombre de comptes connectés. Annulable à tout moment.</p>
+    <div class="grid md:grid-cols-3 gap-6 items-stretch">
+
+      <div class="border border-gray-200 rounded-2xl p-7 flex flex-col">
+        <h3 class="font-semibold text-lg mb-1">Starter</h3>
+        <p class="text-sm text-gray-500 mb-5">Pour lancer une première marque.</p>
+        <div class="mb-1"><span class="text-3xl font-bold">9,99 €</span><span class="text-gray-400 text-sm"> le 1<sup>er</sup> mois</span></div>
+        <p class="text-xs text-gray-400 mb-6">puis 29,99 €/mois</p>
+        <ul class="text-sm text-gray-600 space-y-2 mb-7">
+          <li>✓ 1 compte connecté</li>
+          <li>✓ ~30 publications / mois</li>
+          <li>✓ Programmation & récurrence</li>
+        </ul>
+        <a href="#inscription" class="mt-auto text-center border border-gray-300 rounded-xl py-2.5 font-semibold hover:border-gray-900">Commencer</a>
+      </div>
+
+      <div class="border-2 border-indigo-500 rounded-2xl p-7 flex flex-col relative shadow-lg">
+        <span class="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold text-white grad-bg px-3 py-1 rounded-full">Le plus choisi</span>
+        <h3 class="font-semibold text-lg mb-1">Pro</h3>
+        <p class="text-sm text-gray-500 mb-5">Pour être présent partout.</p>
+        <div class="mb-1"><span class="text-3xl font-bold">59,99 €</span><span class="text-gray-400 text-sm">/mois</span></div>
+        <p class="text-xs text-gray-400 mb-6">tout inclus</p>
+        <ul class="text-sm text-gray-600 space-y-2 mb-7">
+          <li>✓ 3 comptes connectés</li>
+          <li>✓ Publications illimitées</li>
+          <li>✓ Programmation & récurrence</li>
+          <li>✓ Multi-plateformes simultané</li>
+        </ul>
+        <a href="#inscription" class="mt-auto text-center grad-bg text-white rounded-xl py-2.5 font-semibold">Commencer</a>
+      </div>
+
+      <div class="border border-gray-200 rounded-2xl p-7 flex flex-col">
+        <h3 class="font-semibold text-lg mb-1">Business</h3>
+        <p class="text-sm text-gray-500 mb-5">Pour gérer plusieurs marques.</p>
+        <div class="mb-1"><span class="text-3xl font-bold">149,99 €</span><span class="text-gray-400 text-sm">/mois</span></div>
+        <p class="text-xs text-gray-400 mb-6">multi-clients</p>
+        <ul class="text-sm text-gray-600 space-y-2 mb-7">
+          <li>✓ 10 comptes connectés</li>
+          <li>✓ Publications illimitées</li>
+          <li>✓ Support prioritaire</li>
+        </ul>
+        <a href="#inscription" class="mt-auto text-center border border-gray-300 rounded-xl py-2.5 font-semibold hover:border-gray-900">Commencer</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-100">
+    <div class="max-w-6xl mx-auto px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
+      <div class="flex items-center gap-2 font-semibold text-gray-700">
+        <span class="w-6 h-6 rounded-md grad-bg flex items-center justify-center text-white text-xs">◆</span>
+        ContentAI Studio
+      </div>
+      <div class="flex gap-6">
+        <a href="/cgu" class="hover:text-gray-900">Conditions d'utilisation</a>
+        <a href="/confidentialite" class="hover:text-gray-900">Confidentialité</a>
+        <a href="mailto:agence.marketflow@gmail.com" class="hover:text-gray-900">Contact</a>
+      </div>
+      <p class="text-xs text-gray-400">© 2026 ContentAI Studio</p>
+    </div>
+  </footer>
+
 </body>
 </html>

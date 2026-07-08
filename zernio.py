@@ -60,16 +60,56 @@ async def list_accounts(profile_id: str) -> list[dict]:
         return r.json().get("accounts", [])
 
 
+async def upload_media(filename: str, content_type: str, data: bytes) -> str:
+    """
+    Téléverse un fichier chez Zernio (flux presign) et renvoie son URL publique,
+    utilisable ensuite comme média d'un post. Évite d'avoir à héberger nous-mêmes
+    les photos des clients sur un domaine public.
+    """
+    async with httpx.AsyncClient(timeout=120) as client:
+        r = await client.post(
+            f"{BASE_URL}/media/presign",
+            json={"filename": filename, "contentType": content_type, "size": len(data)},
+            headers=_headers(),
+        )
+        r.raise_for_status()
+        info = r.json()
+        put = await client.put(
+            info["uploadUrl"], content=data, headers={"Content-Type": content_type}
+        )
+        put.raise_for_status()
+        return info["publicUrl"]
+
+
+def _recycling_config(recurrence: str) -> dict | None:
+    """Traduit un choix d'UI ('week' / '2week' / 'month') en config de recyclage Zernio."""
+    mapping = {
+        "week": {"gap": 1, "gapFreq": "week"},
+        "2week": {"gap": 2, "gapFreq": "week"},
+        "month": {"gap": 1, "gapFreq": "month"},
+    }
+    cfg = mapping.get(recurrence)
+    if not cfg:
+        return None
+    return {"enabled": True, **cfg}
+
+
 async def create_post(
     profile_id: str,
     accounts: list[dict],
     content: str,
     media_urls: list[str],
     media_type: str = "image",
+    scheduled_for: str | None = None,
+    timezone: str = "Europe/Paris",
+    auto_add_music: bool = False,
+    recurrence: str = "none",
 ) -> dict:
     """
-    Publie immédiatement `content` + les médias sur `accounts` (liste d'objets
-    renvoyés par list_accounts — plusieurs plateformes possibles en un appel).
+    Crée un post multi-plateformes sur `accounts` (objets renvoyés par
+    list_accounts). Publie immédiatement si `scheduled_for` est vide, sinon
+    programme à cette date. `recurrence` active le recyclage automatique
+    (hebdo / bi-hebdo / mensuel — ignoré par TikTok côté Zernio).
     """
     platforms = [
         {"platform": acc["platform"], "accountId": acc["_id"]} for acc in accounts
@@ -78,9 +118,27 @@ async def create_post(
         "content": content,
         "mediaItems": [{"type": media_type, "url": url} for url in media_urls],
         "platforms": platforms,
-        "publishNow": True,
-        "queuedFromProfile": profile_id,
+        # Réglages TikTok requis pour une publication directe de carrousel photo.
+        "tiktokSettings": {
+            "privacyLevel": "PUBLIC_TO_EVERYONE",
+            "allowComment": True,
+            "photoCoverIndex": 0,
+            "autoAddMusic": auto_add_music,
+            "contentPreviewConfirmed": True,
+            "expressConsentGiven": True,
+        },
     }
+
+    if scheduled_for:
+        body["scheduledFor"] = scheduled_for
+        body["timezone"] = timezone
+    else:
+        body["publishNow"] = True
+
+    recycling = _recycling_config(recurrence)
+    if recycling:
+        body["recycling"] = recycling
+
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(f"{BASE_URL}/posts", json=body, headers=_headers())
         try:
