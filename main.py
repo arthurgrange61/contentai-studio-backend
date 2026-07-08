@@ -42,6 +42,7 @@ Routes principales — 3 espaces : Bibliothèque, Styles, Publication.
 import datetime
 import os
 import random
+import re
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
@@ -132,11 +133,21 @@ async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request, "configured": configured})
 
 
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
 @app.post("/signup", response_class=HTMLResponse)
 async def signup(request: Request, business_name: str = Form(...), email: str = Form(...)):
     # Aucun appel à Zernio ici : le compte Studio (email + boutique) est géré
     # entièrement en DB. Le profile Zernio n'est créé qu'à la 1ère connexion
     # d'un réseau social (voir /connect/{platform}).
+    if not EMAIL_RE.match(email):
+        configured = bool(os.environ.get("ZERNIO_API_KEY"))
+        return templates.TemplateResponse(
+            "index.html",
+            {"request": request, "configured": configured, "signup_error": "Adresse e-mail invalide."},
+        )
+
     async with db.get_session() as session:
         user = await db.get_user_by_email(session, email)
         if not user:
