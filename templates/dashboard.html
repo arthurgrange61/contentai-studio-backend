@@ -15,36 +15,21 @@
         <p class="text-sm font-semibold">{{ business_name }}</p>
         <p class="text-xs text-gray-400">ContentAI Studio</p>
       </div>
-      <a href="/logout" class="text-xs text-gray-400 hover:text-gray-900">Déconnexion</a>
-    </div>
-
-    <div class="border border-gray-200 rounded-xl p-6 mb-6">
-      <h2 class="text-lg font-semibold mb-4">Comptes connectés</h2>
-
-      {% if accounts %}
-      <ul class="space-y-2 mb-5">
-        {% for acc in accounts %}
-        <li class="flex items-center justify-between text-sm border border-gray-100 rounded-lg px-3 py-2">
-          <span>{{ acc.platform }} — @{{ acc.username or acc.displayName }}</span>
-          <span class="{{ 'text-green-600' if acc.isActive else 'text-red-500' }} text-xs">
-            {{ '● Actif' if acc.isActive else '● Déconnecté' }}
-          </span>
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="text-sm text-gray-500 mb-5">Aucun compte connecté pour l'instant.</p>
-      {% endif %}
-
-      <div class="flex flex-wrap gap-2">
-        <a href="/connect/tiktok" class="px-4 py-2 rounded-lg bg-black text-white text-sm font-medium hover:bg-gray-800">+ TikTok</a>
-        <a href="/connect/instagram" class="px-4 py-2 rounded-lg text-white text-sm font-medium"
-           style="background: linear-gradient(45deg, #405DE6, #833AB4, #E1306C);">+ Instagram</a>
-        <a href="/connect/facebook" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">+ Facebook</a>
+      <div class="flex items-center gap-4">
+        <a href="/settings" class="text-xs text-gray-500 hover:text-gray-900">⚙️ Paramètres</a>
+        <a href="/logout" class="text-xs text-gray-400 hover:text-gray-900">Déconnexion</a>
       </div>
     </div>
 
-    {% if accounts %}
+    {% if not accounts %}
+    <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 mb-6">
+      <p class="text-sm text-amber-800">
+        Aucun compte connecté — tu peux essayer le formulaire ci-dessous pour voir comment ça fonctionne,
+        mais il faudra <a href="/settings" class="underline font-medium">connecter un réseau</a> avant de publier pour de vrai.
+      </p>
+    </div>
+    {% endif %}
+
     <div class="border border-gray-200 rounded-xl p-6">
       <h2 class="text-lg font-semibold mb-1">Publier un carrousel photo</h2>
       <p class="text-sm text-gray-500 mb-5">Choisis les comptes cibles, la légende, et les URLs des photos.</p>
@@ -52,6 +37,7 @@
       <form method="post" action="/api/post" class="space-y-4">
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1">Comptes cibles</label>
+          {% if accounts %}
           <div class="space-y-1">
             {% for acc in accounts %}
             <label class="flex items-center gap-2 text-sm">
@@ -60,6 +46,9 @@
             </label>
             {% endfor %}
           </div>
+          {% else %}
+          <p class="text-xs text-gray-400">Aucun compte connecté — <a href="/settings" class="underline">connecte-en un</a>.</p>
+          {% endif %}
         </div>
 
         <div>
@@ -75,12 +64,12 @@
             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:border-gray-900 outline-none"></textarea>
         </div>
 
-        <button type="submit" class="w-full py-3 rounded-xl bg-black text-white font-semibold hover:bg-gray-800 transition-all">
+        <button type="submit" {{ 'disabled' if not accounts }}
+          class="w-full py-3 rounded-xl font-semibold transition-all {{ 'bg-gray-200 text-gray-400 cursor-not-allowed' if not accounts else 'bg-black text-white hover:bg-gray-800' }}">
           Publier
         </button>
       </form>
     </div>
-    {% endif %}
 
     {% if result is defined %}
     <div class="mt-6 border border-gray-200 rounded-xl p-5">

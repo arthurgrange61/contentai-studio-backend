@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContentAI Studio — Paramètres</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>* { font-family: system-ui, -apple-system, sans-serif; }</style>
+</head>
+<body class="min-h-screen bg-white text-gray-900">
+  <div class="max-w-xl mx-auto px-6 py-10">
+
+    <div class="flex items-center justify-between mb-8">
+      <a href="/dashboard" class="text-xs text-gray-400 hover:text-gray-900">← Retour</a>
+      <a href="/logout" class="text-xs text-gray-400 hover:text-gray-900">Déconnexion</a>
+    </div>
+
+    <h1 class="text-xl font-semibold mb-1">Paramètres</h1>
+    <p class="text-sm text-gray-500 mb-8">{{ business_name }} — {{ email }}</p>
+
+    <div class="border border-gray-200 rounded-xl p-6">
+      <h2 class="text-lg font-semibold mb-4">Comptes connectés</h2>
+
+      {% if accounts %}
+      <ul class="space-y-2 mb-5">
+        {% for acc in accounts %}
+        <li class="flex items-center justify-between text-sm border border-gray-100 rounded-lg px-3 py-2">
+          <span>{{ acc.platform }} — @{{ acc.username or acc.displayName }}</span>
+          <span class="{{ 'text-green-600' if acc.isActive else 'text-red-500' }} text-xs">
+            {{ '● Actif' if acc.isActive else '● Déconnecté' }}
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-sm text-gray-500 mb-5">Aucun compte connecté pour l'instant. Connecte un réseau pour pouvoir publier.</p>
+      {% endif %}
+
+      <div class="flex flex-wrap gap-2">
+        <a href="/connect/tiktok" class="px-4 py-2 rounded-lg bg-black text-white text-sm font-medium hover:bg-gray-800">+ TikTok</a>
+        <a href="/connect/instagram" class="px-4 py-2 rounded-lg text-white text-sm font-medium"
+           style="background: linear-gradient(45deg, #405DE6, #833AB4, #E1306C);">+ Instagram</a>
+        <a href="/connect/facebook" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">+ Facebook</a>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
