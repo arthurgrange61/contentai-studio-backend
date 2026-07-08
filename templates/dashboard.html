@@ -12,21 +12,7 @@
   </style>
 </head>
 <body class="bg-gray-50 text-gray-900 antialiased min-h-screen">
-
-  <!-- Top bar -->
-  <header class="border-b border-gray-100 bg-white">
-    <div class="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-2 font-semibold">
-        <span class="w-7 h-7 rounded-lg grad-bg flex items-center justify-center text-white text-sm">◆</span>
-        ContentAI <span class="text-gray-400 font-normal">Studio</span>
-      </div>
-      <div class="flex items-center gap-5 text-sm">
-        <span class="text-gray-500 hidden sm:inline">{{ business_name }}</span>
-        <a href="/settings" class="text-gray-600 hover:text-gray-900 font-medium">⚙️ Paramètres</a>
-        <a href="/logout" class="text-gray-400 hover:text-gray-900">Déconnexion</a>
-      </div>
-    </div>
-  </header>
+  {% include "_nav.html" %}
 
   <main class="max-w-3xl mx-auto px-6 py-10">
 

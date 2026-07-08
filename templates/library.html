@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContentAI Studio — Bibliothèque</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .grad-bg { background: linear-gradient(90deg,#6366f1,#a855f7,#ec4899); }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 antialiased min-h-screen">
+  {% include "_nav.html" %}
+
+  <main class="max-w-5xl mx-auto px-6 py-10">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold">Bibliothèque de photos</h1>
+        <p class="text-sm text-gray-500">Déposez toutes vos photos ici — elles serviront de réservoir pour générer votre contenu.</p>
+      </div>
+      <span class="text-sm text-gray-400">{{ photos|length }} photo{{ 's' if photos|length != 1 else '' }}</span>
+    </div>
+
+    {% if errors %}
+    <div class="rounded-2xl border border-red-200 bg-red-50 p-4 mb-6 text-sm text-red-700">
+      {% for e in errors %}<p>{{ e }}</p>{% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" action="/library/upload" enctype="multipart/form-data" class="mb-8">
+      <label id="dropzone" for="photos"
+        class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 bg-white rounded-2xl py-12 px-4 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40 transition">
+        <span class="text-3xl mb-2">📥</span>
+        <span class="text-sm font-medium text-gray-700">Glissez un grand nombre de photos ici</span>
+        <span class="text-xs text-gray-400 mt-1">ou cliquez pour parcourir · JPG, PNG, WEBP, GIF</span>
+      </label>
+      <input id="photos" name="photos" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple class="hidden"/>
+      <div id="pending-count" class="text-xs text-gray-400 mt-2 text-center hidden"></div>
+      <button type="submit" class="w-full mt-3 grad-bg text-white font-semibold rounded-xl py-3">Envoyer les photos</button>
+    </form>
+
+    {% if photos %}
+    <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+      {% for photo in photos %}
+      <div class="relative aspect-square rounded-xl overflow-hidden border border-gray-200 group">
+        <img src="{{ photo.url }}" class="w-full h-full object-cover"/>
+        <form method="post" action="/library/delete/{{ photo.id }}" class="absolute top-1.5 right-1.5">
+          <button type="submit" title="Supprimer"
+            class="w-6 h-6 rounded-full bg-black/60 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition">✕</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-400 text-center py-10">Aucune photo pour l'instant.</p>
+    {% endif %}
+  </main>
+
+  <script>
+    const input = document.getElementById('photos');
+    const count = document.getElementById('pending-count');
+    input.addEventListener('change', () => {
+      count.classList.toggle('hidden', input.files.length === 0);
+      count.textContent = input.files.length + ' photo(s) sélectionnée(s)';
+    });
+    const dropzone = document.getElementById('dropzone');
+    ['dragover','dragenter'].forEach(ev => dropzone.addEventListener(ev, e => {
+      e.preventDefault(); dropzone.classList.add('border-indigo-500','bg-indigo-50');
+    }));
+    ['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, e => {
+      e.preventDefault(); dropzone.classList.remove('border-indigo-500','bg-indigo-50');
+    }));
+    dropzone.addEventListener('drop', e => { input.files = e.dataTransfer.files; input.dispatchEvent(new Event('change')); });
+  </script>
+</body>
+</html>

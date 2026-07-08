@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContentAI Studio — File d'attente</title>
+  {% if pending %}<meta http-equiv="refresh" content="5">{% endif %}
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .grad-bg { background: linear-gradient(90deg,#6366f1,#a855f7,#ec4899); }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 antialiased min-h-screen">
+  {% include "_nav.html" %}
+
+  <main class="max-w-3xl mx-auto px-6 py-10">
+    <div class="flex items-center justify-between mb-1">
+      <h1 class="text-2xl font-bold">File d'attente</h1>
+      {% if pending %}
+      <span class="text-xs text-indigo-600 flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span> Génération en cours…
+      </span>
+      {% endif %}
+    </div>
+    <p class="text-sm text-gray-500 mb-8">Vos contenus générés, programmés ou publiés.</p>
+
+    {% if contents %}
+    <div class="space-y-3">
+      {% for item in contents %}
+      <div class="bg-white border border-gray-200 rounded-2xl p-4 flex gap-4 items-center">
+        {% if item.composed_urls %}
+        <img src="{{ item.composed_urls[0] }}" class="w-16 h-16 rounded-lg object-cover shrink-0"/>
+        {% elif item.photo_urls %}
+        <img src="{{ item.photo_urls[0] }}" class="w-16 h-16 rounded-lg object-cover shrink-0 opacity-50"/>
+        {% endif %}
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium truncate">{{ item.caption or item.overlay_text or 'Génération en cours…' }}</p>
+          <p class="text-xs text-gray-400">
+            {% if item.scheduled_for %}Programmé le {{ item.scheduled_for.strftime('%d/%m/%Y à %H:%M') }}{% endif %}
+          </p>
+          {% if item.status == 'failed' and item.error %}
+          <p class="text-xs text-red-600 mt-1">{{ item.error }}</p>
+          {% endif %}
+        </div>
+        <span class="shrink-0 text-xs font-medium px-2.5 py-1 rounded-full
+          {{ 'bg-amber-100 text-amber-700' if item.status == 'pending' }}
+          {{ 'bg-green-100 text-green-700' if item.status == 'scheduled' }}
+          {{ 'bg-red-100 text-red-700' if item.status == 'failed' }}">
+          {{ {'pending':'⏳ En cours','scheduled':'✓ Programmé','failed':'✕ Échec','published':'✓ Publié'}[item.status] }}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-400 text-center py-10">
+      Aucun contenu généré pour l'instant — <a href="/generate" class="underline text-indigo-600">lance une génération</a>.
+    </p>
+    {% endif %}
+  </main>
+</body>
+</html>
