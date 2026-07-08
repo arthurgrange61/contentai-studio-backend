@@ -7,14 +7,12 @@ route tout via Zernio : chaque client Studio est un "profile" Zernio, et la
 connexion de ses comptes sociaux passe par le flux OAuth hébergé par Zernio
 (déjà validé côté plateformes).
 
-Routes principales :
+Routes principales — 3 espaces : Bibliothèque, Styles, Publication.
   GET  /                     → formulaire d'inscription (nom + email uniquement)
   POST /signup               → crée/retrouve le compte Studio en DB — AUCUN appel Zernio
-  GET  /dashboard            → aperçu produit + formulaire de post ponctuel
   GET  /settings             → comptes connectés + boutons de connexion
   GET  /connect/{platform}   → crée le profile Zernio si besoin, puis redirige vers l'autorisation
   GET  /connect/callback     → retour Zernio après connexion d'un compte
-  POST /api/post             → publie un carrousel ponctuel
 
   GET  /library              → bibliothèque de photos (upload en masse)
   POST /library/upload
@@ -117,7 +115,7 @@ async def _ensure_profile(session, user: db.StudioUser) -> str:
 @app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def home(request: Request):
     if _session_user_id(request):
-        return RedirectResponse("/dashboard")
+        return RedirectResponse("/library")
     configured = bool(os.environ.get("ZERNIO_API_KEY"))
     return templates.TemplateResponse("index.html", {"request": request, "configured": configured})
 
@@ -135,26 +133,9 @@ async def signup(request: Request, business_name: str = Form(...), email: str = 
             await session.commit()
             await session.refresh(user)
 
-    resp = RedirectResponse("/dashboard", status_code=303)
+    resp = RedirectResponse("/library", status_code=303)
     _set_session(resp, user.id)
     return resp
-
-
-@app.api_route("/dashboard", methods=["GET", "HEAD"], response_class=HTMLResponse)
-async def dashboard(request: Request):
-    user_id = _session_user_id(request)
-    if not user_id:
-        return RedirectResponse("/")
-
-    async with db.get_session() as session:
-        user = await db.get_user(session, user_id)
-        if not user:
-            return RedirectResponse("/")
-        accounts = await zernio.list_accounts(user.profile_id) if user.profile_id else []
-        return templates.TemplateResponse(
-            "dashboard.html",
-            {"request": request, "business_name": user.business_name, "accounts": accounts},
-        )
 
 
 @app.api_route("/settings", methods=["GET", "HEAD"], response_class=HTMLResponse)
@@ -199,70 +180,6 @@ async def connect(request: Request, platform: str):
     redirect_url = f"{_base_url(request)}/connect/callback"
     auth_url = await zernio.get_connect_url(platform=platform, profile_id=profile_id, redirect_url=redirect_url)
     return RedirectResponse(auth_url)
-
-
-@app.post("/api/post", response_class=HTMLResponse)
-async def api_post(
-    request: Request,
-    account_ids: list[str] = Form(default=[]),
-    caption: str = Form(...),
-    photos: list[UploadFile] = File(default=[]),
-    schedule_mode: str = Form("now"),          # "now" | "scheduled"
-    scheduled_for: str = Form(""),
-    timezone: str = Form("Europe/Paris"),
-    recurrence: str = Form("none"),            # "none" | "week" | "2week" | "month"
-    auto_add_music: str = Form("off"),
-):
-    user_id = _session_user_id(request)
-    if not user_id:
-        return RedirectResponse("/", status_code=303)
-
-    async with db.get_session() as session:
-        user = await db.get_user(session, user_id)
-        if not user:
-            return RedirectResponse("/", status_code=303)
-
-        accounts = await zernio.list_accounts(user.profile_id) if user.profile_id else []
-        selected = [a for a in accounts if a["_id"] in account_ids]
-
-        def _render(result):
-            return templates.TemplateResponse(
-                "dashboard.html",
-                {"request": request, "business_name": user.business_name, "accounts": accounts, "result": result},
-            )
-
-        if not selected:
-            return _render({"error": {"message": "Sélectionne au moins un compte cible."}})
-
-        real_photos = [p for p in photos if p and p.filename]
-        if not real_photos:
-            return _render({"error": {"message": "Ajoute au moins une photo."}})
-        if len(real_photos) > 10:
-            return _render({"error": {"message": "10 photos maximum par carrousel."}})
-
-        media_urls = []
-        for photo in real_photos:
-            content_type = (photo.content_type or "image/jpeg").lower()
-            if content_type not in ALLOWED_IMAGE_TYPES:
-                return _render({"error": {"message": f"Format non supporté : {content_type}. Utilise JPG, PNG, WEBP ou GIF."}})
-            data = await photo.read()
-            try:
-                url = await zernio.upload_media(photo.filename, content_type, data)
-            except Exception as e:
-                return _render({"error": {"message": f"Échec de l'envoi d'une photo : {e}"}})
-            media_urls.append(url)
-
-        result = await zernio.create_post(
-            profile_id=user.profile_id,
-            accounts=selected,
-            content=caption,
-            media_urls=media_urls,
-            scheduled_for=(scheduled_for if schedule_mode == "scheduled" else None),
-            timezone=timezone,
-            auto_add_music=(auto_add_music == "on"),
-            recurrence=recurrence,
-        )
-        return _render(result)
 
 
 # ─── Bibliothèque de photos ─────────────────────────────────────────────────
