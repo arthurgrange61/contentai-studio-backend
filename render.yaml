@@ -8,5 +8,9 @@ services:
     envVars:
       - key: ZERNIO_API_KEY
         sync: false        # à renseigner dans le dashboard Render (secret)
+      - key: GROQ_API_KEY
+        sync: false        # à renseigner dans le dashboard Render (secret)
+      - key: DATABASE_URL
+        sync: false        # Internal Database URL de contentai-studio-db
       - key: SESSION_SECRET
         generateValue: true
