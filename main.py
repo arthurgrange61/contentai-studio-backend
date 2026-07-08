@@ -103,6 +103,16 @@ async def dashboard(request: Request):
     )
 
 
+@app.api_route("/connect/callback", methods=["GET", "HEAD"], response_class=HTMLResponse)
+async def connect_callback(request: Request):
+    # Zernio (mode standard) gère lui-même l'échange OAuth et nous redirige ici
+    # avec ?connected={platform}&profileId=X&accountId=Y&username=Z — rien à faire
+    # de notre côté, le compte est déjà connecté côté Zernio.
+    # Doit être déclarée AVANT /connect/{platform}, sinon FastAPI route "callback"
+    # comme si c'était une plateforme.
+    return RedirectResponse("/dashboard")
+
+
 @app.get("/connect/{platform}")
 async def connect(request: Request, platform: str):
     sess = _get_session(request)
@@ -114,14 +124,6 @@ async def connect(request: Request, platform: str):
         platform=platform, profile_id=sess["profile_id"], redirect_url=redirect_url
     )
     return RedirectResponse(auth_url)
-
-
-@app.api_route("/connect/callback", methods=["GET", "HEAD"], response_class=HTMLResponse)
-async def connect_callback(request: Request):
-    # Zernio (mode standard) gère lui-même l'échange OAuth et nous redirige ici
-    # avec ?connected={platform}&profileId=X&accountId=Y&username=Z — rien à faire
-    # de notre côté, le compte est déjà connecté côté Zernio.
-    return RedirectResponse("/dashboard")
 
 
 @app.post("/api/post", response_class=HTMLResponse)
