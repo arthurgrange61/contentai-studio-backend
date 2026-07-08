@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: contentai-studio
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ZERNIO_API_KEY
+        sync: false        # à renseigner dans le dashboard Render (secret)
+      - key: SESSION_SECRET
+        generateValue: true
