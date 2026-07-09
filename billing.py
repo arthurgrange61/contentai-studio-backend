@@ -17,14 +17,14 @@ PLANS = {
         "label": "Starter",
         "price_id_env": "STRIPE_PRICE_STARTER",
         "coupon_env": "STRIPE_COUPON_STARTER_FIRST_MONTH",  # 1er mois à prix réduit
-        "price_display": "9,99 € le 1er mois, puis 29,99 €/mois",
+        "price_display": "9,99 € le 1er mois, puis 19,99 €/mois",
         "max_accounts": 2,
         "description": (
             "Idéal pour tester ContentAI Studio sur une première boutique ou marque, sans engagement lourd. "
             "Connecte jusqu'à 2 comptes (par exemple TikTok + Instagram) et publie environ une fois par jour "
             "grâce à la bibliothèque de photos et aux styles de contenu générés par IA. "
             "Le premier mois est facturé 9,99 € pour découvrir l'outil en conditions réelles, puis l'abonnement "
-            "passe à 29,99 €/mois, résiliable à tout moment depuis tes paramètres."
+            "passe à 19,99 €/mois, résiliable à tout moment depuis tes paramètres."
         ),
     },
     "pro": {
