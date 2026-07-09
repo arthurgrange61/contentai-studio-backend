@@ -22,3 +22,16 @@
     <a href="/queue" class="whitespace-nowrap">File d'attente</a>
   </div>
 </header>
+
+<div id="loading-overlay" class="hidden fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-3">
+  <span class="text-4xl inline-block animate-spin">🔄</span>
+  <p id="loading-overlay-text" class="text-sm text-gray-600 font-medium">Chargement…</p>
+</div>
+<script>
+  function showLoadingOverlay(text) {
+    const overlay = document.getElementById('loading-overlay');
+    const label = document.getElementById('loading-overlay-text');
+    if (label && text) label.textContent = text;
+    if (overlay) overlay.classList.remove('hidden');
+  }
+</script>

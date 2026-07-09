@@ -33,7 +33,7 @@
     <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-7 mb-8">
       <h2 class="text-lg font-semibold mb-1">⚡ Publier maintenant</h2>
       <p class="text-sm text-gray-500 mb-4">Génère et publie une pièce de contenu immédiatement, avec le style de ton choix.</p>
-      <form method="post" action="/posting/publish-now" class="space-y-4">
+      <form method="post" action="/posting/publish-now" onsubmit="showLoadingOverlay('Génération et publication en cours…')" class="space-y-4">
         <div class="grid sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1.5">Style</label>
@@ -146,7 +146,7 @@
       <p class="text-sm text-gray-500 mb-4">
         Crée et programme automatiquement toutes les occurrences à venir de tes règles actives.
       </p>
-      <form method="post" action="/posting/generate" class="flex items-end gap-3">
+      <form method="post" action="/posting/generate" onsubmit="showLoadingOverlay('Génération du planning…')" class="flex items-end gap-3">
         <div class="flex-1">
           <label class="block text-xs font-medium text-gray-500 mb-1.5">Sur combien de semaines ?</label>
           <input type="number" name="weeks_ahead" min="1" max="8" value="2"
