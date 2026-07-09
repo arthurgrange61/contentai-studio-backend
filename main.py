@@ -1210,6 +1210,11 @@ async def confidentialite(request: Request):
     return templates.TemplateResponse("confidentialite.html", {"request": request})
 
 
+@app.api_route("/mentions-legales", methods=["GET", "HEAD"], response_class=HTMLResponse)
+async def mentions_legales(request: Request):
+    return templates.TemplateResponse("mentions-legales.html", {"request": request})
+
+
 @app.api_route("/logout", methods=["GET", "HEAD"])
 async def logout():
     resp = RedirectResponse("/")
