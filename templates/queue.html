@@ -93,6 +93,11 @@
               {{ 'bg-indigo-100 text-indigo-700' if item.status == 'published' }}">
               {{ {'pending':'⏳ En cours','scheduled':'✓ Programmé','failed':'✕ Échec','published':'✓ Publié'}[item.status] }}
             </span>
+            {% if item.status != 'published' and (not item.scheduled_for or item.scheduled_for > now) %}
+            <form method="post" action="/queue/delete/{{ item.id }}" onsubmit="return confirm('Supprimer cette publication programmée ?');">
+              <button type="submit" class="shrink-0 text-xs text-gray-400 hover:text-red-600">Supprimer</button>
+            </form>
+            {% endif %}
           </div>
           {% endfor %}
         </div>

@@ -922,8 +922,28 @@ async def queue_page(request: Request, month: str = ""):
                 "current_month": f"{year:04d}-{mon:02d}",
                 "prev_month": f"{prev_month.year:04d}-{prev_month.month:02d}",
                 "next_month": f"{next_month.year:04d}-{next_month.month:02d}",
+                "now": datetime.datetime.now(),
             },
         )
+
+
+@app.post("/queue/delete/{content_id}")
+async def queue_delete(content_id: str, request: Request):
+    user_id = _session_user_id(request)
+    if not user_id:
+        return RedirectResponse("/", status_code=303)
+
+    async with db.get_session() as session:
+        item = await session.get(db.GeneratedContent, content_id)
+        if item and item.user_id == user_id and item.status != "published":
+            if item.zernio_post_id:
+                try:
+                    await zernio.delete_post(item.zernio_post_id)
+                except Exception:
+                    pass  # déjà publié/expiré côté Zernio : on nettoie quand même chez nous
+            await session.delete(item)
+            await session.commit()
+    return RedirectResponse("/queue", status_code=303)
 
 
 # ─── Facturation (Stripe) ────────────────────────────────────────────────────

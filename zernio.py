@@ -148,3 +148,11 @@ async def create_post(
         if r.status_code not in (200, 201):
             return {"error": data}
         return data
+
+
+async def delete_post(post_id: str) -> None:
+    """Annule/supprime un post programmé chez Zernio (avant sa publication)."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.delete(f"{BASE_URL}/posts/{post_id}", headers=_headers())
+        if r.status_code not in (200, 204, 404):
+            r.raise_for_status()
