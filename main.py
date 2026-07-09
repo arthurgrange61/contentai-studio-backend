@@ -86,6 +86,24 @@ signer = URLSafeSerializer(SESSION_SECRET, salt="contentai-studio-session")
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"}
 
 
+@app.exception_handler(httpx.HTTPStatusError)
+async def zernio_error_handler(request: Request, exc: httpx.HTTPStatusError):
+    """
+    Toute erreur HTTP non gérée venant de Zernio (quota de comptes/profiles
+    atteint, panne côté API...) affiche une page claire plutôt qu'un 500 brut.
+    """
+    status = exc.response.status_code
+    if status == 402:
+        title = "Erreur du nombre de connexions"
+        message = "Erreur du nombre de connexions, contactez le support."
+    else:
+        title = "Service momentanément indisponible"
+        message = "Une erreur technique est survenue. Réessaie dans un instant, ou contacte le support si ça persiste."
+    return templates.TemplateResponse(
+        "error.html", {"request": request, "title": title, "message": message}, status_code=502
+    )
+
+
 # ─── Session (cookie signé -> user_id, l'utilisateur lui-même vit en DB) ────
 def _set_session(resp, user_id: str):
     resp.set_cookie(
