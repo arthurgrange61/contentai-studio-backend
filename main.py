@@ -396,7 +396,7 @@ async def styles_edit(
 
 @app.get("/styles/{style_id}/preview", response_class=HTMLResponse)
 async def styles_preview(style_id: str, request: Request):
-    """Génère 3 exemples de rendu pour ce style, sans rien publier ni stocker chez Zernio."""
+    """Génère 1 exemple de carrousel complet pour ce style, sans rien publier ni stocker chez Zernio."""
     user_id = _session_user_id(request)
     if not user_id:
         return RedirectResponse("/")
@@ -413,30 +413,42 @@ async def styles_preview(style_id: str, request: Request):
 
         pool = photos.copy()
         random.shuffle(pool)
-        chosen = [pool[i % len(pool)] for i in range(3)]
+        chosen = [pool[i % len(pool)] for i in range(style.photo_count)]
 
-        examples = []
+        ai_result = await ai_writer.generate_content_piece(
+            business_name=user.business_name,
+            example_texts=style.example_texts or [],
+            piece_index=0,
+            total_pieces=1,
+        )
+
+        n = len(chosen)
+        overlay_indexes = {
+            "none": set(),
+            "first": {0},
+            "last": {n - 1},
+            "all": set(range(n)),
+        }.get(style.overlay_position, {0})
+
+        carousel_images = []
         async with httpx.AsyncClient(timeout=30) as client:
             for i, photo in enumerate(chosen):
-                ai_result = await ai_writer.generate_content_piece(
-                    business_name=user.business_name,
-                    example_texts=style.example_texts or [],
-                    piece_index=i,
-                    total_pieces=3,
-                )
                 photo_bytes = (await client.get(photo.url)).content
-                if style.overlay_position != "none":
-                    composed = imaging.overlay_text_on_image(
-                        photo_bytes, ai_result["overlay_text"], style=style.text_style, position=style.text_placement
-                    )
-                else:
-                    composed = imaging.overlay_text_on_image(photo_bytes, "", style=style.text_style, position=style.text_placement)
-                data_uri = "data:image/jpeg;base64," + base64.b64encode(composed).decode()
-                examples.append({"image": data_uri, "caption": ai_result["caption"]})
+                text = ai_result["overlay_text"] if i in overlay_indexes else ""
+                composed = imaging.overlay_text_on_image(
+                    photo_bytes, text, style=style.text_style, position=style.text_placement
+                )
+                carousel_images.append("data:image/jpeg;base64," + base64.b64encode(composed).decode())
 
         return templates.TemplateResponse(
             "style_preview.html",
-            {"request": request, "business_name": user.business_name, "style": style, "examples": examples},
+            {
+                "request": request,
+                "business_name": user.business_name,
+                "style": style,
+                "carousel_images": carousel_images,
+                "caption": ai_result["caption"],
+            },
         )
 
 

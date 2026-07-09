@@ -17,21 +17,27 @@
     <a href="/styles" class="text-xs text-gray-400 hover:text-gray-900">← Retour aux styles</a>
     <h1 class="text-2xl font-bold mt-2 mb-1">Aperçu — {{ style.name }}</h1>
     <p class="text-sm text-gray-500 mb-8">
-      3 exemples générés avec ce style (texte, position, ton) à partir de photos de ta bibliothèque.
-      Rien n'est publié ni sauvegardé.
+      Exemple de carrousel complet ({{ carousel_images|length }} photo{{ 's' if carousel_images|length > 1 else '' }})
+      généré avec ce style. Rien n'est publié ni sauvegardé.
     </p>
 
-    <div class="grid sm:grid-cols-3 gap-5">
-      {% for ex in examples %}
-      <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-        <img src="{{ ex.image }}" class="w-full aspect-[9/16] object-cover"/>
-        <p class="text-xs text-gray-600 p-4">{{ ex.caption }}</p>
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 mb-6">
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-5">
+        {% for image in carousel_images %}
+        <div class="rounded-xl overflow-hidden border border-gray-200">
+          <img src="{{ image }}" class="w-full aspect-[9/16] object-cover"/>
+          <p class="text-[10px] text-gray-400 text-center py-1">Photo {{ loop.index }}</p>
+        </div>
+        {% endfor %}
       </div>
-      {% endfor %}
+      <div class="pt-4 border-t border-gray-100">
+        <p class="text-xs font-medium text-gray-500 mb-1">Légende générée</p>
+        <p class="text-sm text-gray-700">{{ caption }}</p>
+      </div>
     </div>
 
-    <a href="/styles/{{ style.id }}/preview" class="inline-block mt-8 text-sm font-medium text-white grad-bg rounded-xl px-5 py-2.5">
-      🔄 Régénérer 3 nouveaux exemples
+    <a href="/styles/{{ style.id }}/preview" class="inline-block text-sm font-medium text-white grad-bg rounded-xl px-5 py-2.5">
+      🔄 Régénérer un nouvel exemple
     </a>
   </main>
 </body>
