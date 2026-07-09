@@ -73,6 +73,8 @@
             <label class="block text-xs font-medium text-gray-500 mb-1.5">Texte incrusté</label>
             <select name="overlay_position" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none">
               <option value="all" selected>Histoire qui se poursuit sur chaque photo</option>
+              <option value="first">Texte seulement au début</option>
+              <option value="last">Texte seulement à la fin</option>
               <option value="none">Aucun texte (légende seule)</option>
             </select>
           </div>
@@ -137,7 +139,7 @@
             {{ style.photo_count }} photo{{ 's' if style.photo_count > 1 else '' }}
           </span>
           <span class="text-xs bg-gray-100 text-gray-600 rounded-full px-2.5 py-1">
-            Texte : {{ {'first':'histoire','last':'histoire','all':'histoire','none':'aucun'}[style.overlay_position] }}
+            Texte : {{ {'first':'début seulement','last':'fin seulement','all':'sur chaque photo','none':'aucun'}[style.overlay_position] }}
           </span>
           {% if style.overlay_position != 'none' %}
           <span class="text-xs bg-gray-100 text-gray-600 rounded-full px-2.5 py-1">
@@ -178,7 +180,9 @@
               <div>
                 <label class="block text-xs font-medium text-gray-500 mb-1.5">Texte incrusté</label>
                 <select name="overlay_position" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none">
-                  <option value="all" {{ 'selected' if style.overlay_position != 'none' }}>Histoire qui se poursuit sur chaque photo</option>
+                  <option value="all" {{ 'selected' if style.overlay_position == 'all' }}>Histoire qui se poursuit sur chaque photo</option>
+                  <option value="first" {{ 'selected' if style.overlay_position == 'first' }}>Texte seulement au début</option>
+                  <option value="last" {{ 'selected' if style.overlay_position == 'last' }}>Texte seulement à la fin</option>
                   <option value="none" {{ 'selected' if style.overlay_position == 'none' }}>Aucun texte (légende seule)</option>
                 </select>
               </div>

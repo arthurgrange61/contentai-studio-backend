@@ -195,6 +195,17 @@ def _parse_example_stories(raw: str) -> list[list[str]]:
     return stories
 
 
+def _overlay_indexes_for(overlay_position: str, total: int) -> set[int]:
+    """Positions (0-based) du carrousel qui doivent recevoir le texte incrusté."""
+    if overlay_position == "none" or total == 0:
+        return set()
+    if overlay_position == "first":
+        return {0}
+    if overlay_position == "last":
+        return {total - 1}
+    return set(range(total))  # "all"
+
+
 @app.post("/signup", response_class=HTMLResponse)
 async def signup(
     request: Request,
@@ -556,7 +567,7 @@ async def styles_preview(style_id: str, request: Request):
         random.shuffle(pool)
         chosen = _pick_photos_for_style(style, photos_by_id, pool, [0])
 
-        no_text = style.overlay_position == "none"
+        overlay_indexes = _overlay_indexes_for(style.overlay_position, len(chosen))
         ai_result = await ai_writer.generate_content_piece(
             business_name=user.business_name,
             example_texts=style.example_texts or [],
@@ -566,10 +577,12 @@ async def styles_preview(style_id: str, request: Request):
         )
 
         carousel_images = []
+        display_lines = []
         async with httpx.AsyncClient(timeout=30) as client:
             for i, photo in enumerate(chosen):
                 photo_bytes = (await client.get(photo.url)).content
-                text = "" if no_text else ai_result["story_lines"][i]
+                text = ai_result["story_lines"][i] if i in overlay_indexes else ""
+                display_lines.append(text)
                 composed = imaging.overlay_text_on_image(
                     photo_bytes, text, style=style.text_style, position=style.text_placement
                 )
@@ -582,7 +595,7 @@ async def styles_preview(style_id: str, request: Request):
                 "business_name": user.business_name,
                 "style": style,
                 "carousel_images": carousel_images,
-                "story_lines": [] if no_text else ai_result["story_lines"],
+                "story_lines": display_lines,
                 "caption": ai_result["caption"],
             },
         )
@@ -822,7 +835,7 @@ async def _run_batch(user_id: str, content_ids: list[str]):
                 # à 90 caractères — les autres plateformes sont bien plus larges.
                 has_tiktok = any(a.get("platform") == "tiktok" for a in selected_accounts)
                 n = len(item.photo_urls)
-                no_text = overlay_position == "none"
+                overlay_indexes = _overlay_indexes_for(overlay_position, n)
                 ai_result = await ai_writer.generate_content_piece(
                     business_name=user.business_name,
                     example_texts=style_examples,
@@ -835,7 +848,7 @@ async def _run_batch(user_id: str, content_ids: list[str]):
                 composed_urls = []
                 async with httpx.AsyncClient(timeout=30) as client:
                     for i, photo_url in enumerate(item.photo_urls):
-                        if no_text:
+                        if i not in overlay_indexes:
                             composed_urls.append(photo_url)
                             continue
                         photo_bytes = (await client.get(photo_url)).content
