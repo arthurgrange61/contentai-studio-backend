@@ -41,6 +41,8 @@ Routes principales — 3 espaces : Bibliothèque, Styles, Publication.
 """
 import calendar
 import datetime
+import hashlib
+import hmac
 import os
 import base64
 import json
@@ -158,6 +160,24 @@ async def home(request: Request):
 
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+PASSWORD_MIN_LENGTH = 8
+
+
+def _hash_password(password: str) -> str:
+    salt = os.urandom(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 260_000)
+    return f"{salt.hex()}${digest.hex()}"
+
+
+def _verify_password(password: str, stored: str | None) -> bool:
+    if not stored:
+        return False
+    try:
+        salt_hex, digest_hex = stored.split("$", 1)
+    except ValueError:
+        return False
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt_hex), 260_000)
+    return hmac.compare_digest(digest.hex(), digest_hex)
 
 
 def _parse_example_stories(raw: str) -> list[list[str]]:
@@ -175,24 +195,71 @@ def _parse_example_stories(raw: str) -> list[list[str]]:
 
 
 @app.post("/signup", response_class=HTMLResponse)
-async def signup(request: Request, business_name: str = Form(...), email: str = Form(...)):
+async def signup(
+    request: Request,
+    business_name: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    password_confirm: str = Form(...),
+):
     # Aucun appel à Zernio ici : le compte Studio (email + boutique) est géré
     # entièrement en DB. Le profile Zernio n'est créé qu'à la 1ère connexion
     # d'un réseau social (voir /connect/{platform}).
-    if not EMAIL_RE.match(email):
-        configured = bool(os.environ.get("ZERNIO_API_KEY"))
+    configured = bool(os.environ.get("ZERNIO_API_KEY"))
+
+    def _error(message: str):
         return templates.TemplateResponse(
             "index.html",
-            {"request": request, "configured": configured, "signup_error": "Adresse e-mail invalide."},
+            {
+                "request": request,
+                "configured": configured,
+                "signup_error": message,
+                "form_business_name": business_name,
+                "form_email": email,
+            },
         )
 
+    if not EMAIL_RE.match(email):
+        return _error("Adresse e-mail invalide.")
+    if len(password) < PASSWORD_MIN_LENGTH:
+        return _error(f"Le mot de passe doit contenir au moins {PASSWORD_MIN_LENGTH} caractères.")
+    if password != password_confirm:
+        return _error("Les deux mots de passe ne correspondent pas.")
+
+    async with db.get_session() as session:
+        existing = await db.get_user_by_email(session, email)
+        if existing:
+            return _error("Un compte existe déjà avec cet e-mail — connecte-toi plutôt.")
+
+        user = db.StudioUser(
+            business_name=business_name, email=email, password_hash=_hash_password(password)
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+
+    resp = RedirectResponse("/library", status_code=303)
+    _set_session(resp, user.id)
+    return resp
+
+
+@app.api_route("/login", methods=["GET", "HEAD"], response_class=HTMLResponse)
+async def login_page(request: Request):
+    if _session_user_id(request):
+        return RedirectResponse("/library")
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
+@app.post("/login", response_class=HTMLResponse)
+async def login(request: Request, email: str = Form(...), password: str = Form(...)):
     async with db.get_session() as session:
         user = await db.get_user_by_email(session, email)
-        if not user:
-            user = db.StudioUser(business_name=business_name, email=email)
-            session.add(user)
-            await session.commit()
-            await session.refresh(user)
+
+    if not user or not _verify_password(password, user.password_hash):
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "login_error": "E-mail ou mot de passe incorrect.", "form_email": email},
+        )
 
     resp = RedirectResponse("/library", status_code=303)
     _set_session(resp, user.id)
@@ -994,7 +1061,7 @@ async def admin_grant_access(request: Request, secret: str = Form(...), email: s
     Protégé par ADMIN_SECRET — à retirer ou sécuriser davantage avant un vrai lancement public.
     """
     admin_secret = os.environ.get("ADMIN_SECRET", "")
-    if not admin_secret or secret != admin_secret:
+    if not admin_secret or not hmac.compare_digest(secret, admin_secret):
         return HTMLResponse("Forbidden", status_code=403)
 
     async with db.get_session() as session:
@@ -1006,6 +1073,30 @@ async def admin_grant_access(request: Request, secret: str = Form(...), email: s
         await session.commit()
 
     return {"email": email, "plan": plan, "subscription_status": "active"}
+
+
+@app.post("/admin/set-password")
+async def admin_set_password(
+    request: Request, secret: str = Form(...), email: str = Form(...), password: str = Form(...)
+):
+    """
+    Définit/réinitialise le mot de passe d'un compte (support, ou migration des
+    comptes créés avant l'ajout du mot de passe). Protégé par ADMIN_SECRET.
+    """
+    admin_secret = os.environ.get("ADMIN_SECRET", "")
+    if not admin_secret or not hmac.compare_digest(secret, admin_secret):
+        return HTMLResponse("Forbidden", status_code=403)
+    if len(password) < PASSWORD_MIN_LENGTH:
+        return HTMLResponse(f"Mot de passe trop court (min {PASSWORD_MIN_LENGTH} caractères).", status_code=400)
+
+    async with db.get_session() as session:
+        user = await db.get_user_by_email(session, email)
+        if not user:
+            return HTMLResponse(f"Aucun compte trouvé pour {email}", status_code=404)
+        user.password_hash = _hash_password(password)
+        await session.commit()
+
+    return {"email": email, "password_set": True}
 
 
 @app.post("/billing/webhook")

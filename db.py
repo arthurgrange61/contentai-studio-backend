@@ -43,6 +43,7 @@ class StudioUser(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     business_name: Mapped[str] = mapped_column(String)
     email: Mapped[str] = mapped_column(String, unique=True)
+    password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     profile_id: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
 
@@ -152,6 +153,7 @@ _MIGRATIONS = [
     "ALTER TABLE content_styles ADD COLUMN IF NOT EXISTS text_placement VARCHAR DEFAULT 'top'",
     "ALTER TABLE posting_rules ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true",
     "ALTER TABLE content_styles ADD COLUMN IF NOT EXISTS position_photos JSON DEFAULT '[]'::json",
+    "ALTER TABLE studio_users ADD COLUMN IF NOT EXISTS password_hash VARCHAR",
 ]
 
 

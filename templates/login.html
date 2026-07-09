@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContentAI Studio — Connexion</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .grad-bg { background: linear-gradient(90deg,#6366f1,#a855f7,#ec4899); }
+    .blob { position: absolute; border-radius: 9999px; filter: blur(80px); opacity: .35; z-index: 0; }
+  </style>
+</head>
+<body class="bg-white text-gray-900 antialiased min-h-screen relative overflow-hidden">
+  <div class="blob w-[420px] h-[420px] bg-indigo-400 -top-20 -left-20"></div>
+  <div class="blob w-[420px] h-[420px] bg-pink-400 top-10 right-0"></div>
+
+  <header class="relative border-b border-gray-100 bg-white/80 backdrop-blur">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center">
+      <a href="/" class="flex items-center gap-2 font-semibold">
+        <span class="w-7 h-7 rounded-lg grad-bg flex items-center justify-center text-white text-sm">◆</span>
+        ContentAI <span class="text-gray-400 font-normal">Studio</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="relative max-w-md mx-auto px-6 py-20">
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-xl p-7">
+      <h1 class="text-lg font-semibold mb-1">Connexion</h1>
+      <p class="text-sm text-gray-500 mb-6">Accède à ton espace ContentAI Studio.</p>
+
+      {% if login_error %}
+      <p class="text-sm text-red-600 mb-4">{{ login_error }}</p>
+      {% endif %}
+
+      <form method="post" action="/login" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1.5">E-mail</label>
+          <input type="email" name="email" required value="{{ form_email or '' }}" placeholder="vous@exemple.com"
+            class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"/>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1.5">Mot de passe</label>
+          <input type="password" name="password" required
+            class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"/>
+        </div>
+        <button type="submit" class="w-full grad-bg text-white font-semibold rounded-xl py-3">Se connecter →</button>
+      </form>
+
+      <p class="text-xs text-gray-400 mt-5 text-center">
+        Pas encore de compte ? <a href="/#inscription" class="underline text-indigo-600">Créer un compte</a>.
+      </p>
+      <p class="text-xs text-gray-400 mt-2 text-center">
+        Mot de passe oublié ? <a href="mailto:agence.marketflow@gmail.com" class="underline">Contacte le support</a>.
+      </p>
+    </div>
+  </main>
+</body>
+</html>
