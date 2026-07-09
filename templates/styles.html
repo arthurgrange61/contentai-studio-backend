@@ -65,9 +65,13 @@
         <div class="grid sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1.5">Nombre de photos par publication</label>
-            <input type="number" name="photo_count" id="photo_count-create" min="1" max="10" value="1"
-              oninput="updatePositions('create', this.value)"
-              class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none"/>
+            <select name="photo_count" id="photo_count-create"
+              onchange="updatePositions('create', this.value)"
+              class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none">
+              {% for n in range(1, 11) %}
+              <option value="{{ n }}">{{ n }}</option>
+              {% endfor %}
+            </select>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1.5">Texte incrusté</label>
@@ -173,9 +177,13 @@
             <div class="grid sm:grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-medium text-gray-500 mb-1.5">Nombre de photos par publication</label>
-                <input type="number" name="photo_count" id="photo_count-edit-{{ style.id }}" min="1" max="10" value="{{ style.photo_count }}"
-                  oninput="updatePositions('edit-{{ style.id }}', this.value)"
-                  class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none"/>
+                <select name="photo_count" id="photo_count-edit-{{ style.id }}"
+                  onchange="updatePositions('edit-{{ style.id }}', this.value)"
+                  class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none">
+                  {% for n in range(1, 11) %}
+                  <option value="{{ n }}" {{ 'selected' if style.photo_count == n }}>{{ n }}</option>
+                  {% endfor %}
+                </select>
               </div>
               <div>
                 <label class="block text-xs font-medium text-gray-500 mb-1.5">Texte incrusté</label>
