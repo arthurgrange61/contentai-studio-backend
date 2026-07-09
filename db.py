@@ -86,6 +86,10 @@ class ContentStyle(Base):
     music_enabled: Mapped[bool] = mapped_column(Boolean, default=False)     # musique auto TikTok
     text_style: Mapped[str] = mapped_column(String, default="outline")      # bubble | outline
     text_placement: Mapped[str] = mapped_column(String, default="top")      # top | center | belly | bottom
+    # Une liste par position (0 = 1ère photo, 1 = 2ème...) d'ids de photos autorisées
+    # à cette position. Liste vide à une position = n'importe quelle photo de la
+    # bibliothèque (comportement par défaut, tirage aléatoire).
+    position_photos: Mapped[list] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
 
     user: Mapped[StudioUser] = relationship(back_populates="styles")
@@ -147,6 +151,7 @@ _MIGRATIONS = [
     "ALTER TABLE content_styles ADD COLUMN IF NOT EXISTS text_style VARCHAR DEFAULT 'outline'",
     "ALTER TABLE content_styles ADD COLUMN IF NOT EXISTS text_placement VARCHAR DEFAULT 'top'",
     "ALTER TABLE posting_rules ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true",
+    "ALTER TABLE content_styles ADD COLUMN IF NOT EXISTS position_photos JSON DEFAULT '[]'::json",
 ]
 
 

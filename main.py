@@ -43,6 +43,7 @@ import calendar
 import datetime
 import os
 import base64
+import json
 import random
 import re
 from contextlib import asynccontextmanager
@@ -338,10 +339,29 @@ async def styles_page(request: Request):
         if not user:
             return RedirectResponse("/")
         styles = await db.list_styles(session, user_id)
+        photos = await db.list_photos(session, user_id)
         return templates.TemplateResponse(
             "styles.html",
-            {"request": request, "business_name": user.business_name, "styles": styles},
+            {"request": request, "business_name": user.business_name, "styles": styles, "photos": photos},
         )
+
+
+def _parse_position_photos(raw: str, photo_count: int) -> list[list[str]]:
+    """
+    `raw` est un JSON (rempli par le JS du formulaire) : une liste par position
+    d'ids de photos autorisées. Liste vide à une position = n'importe quelle
+    photo de la bibliothèque (comportement par défaut).
+    """
+    try:
+        parsed = json.loads(raw) if raw else []
+    except (ValueError, TypeError):
+        parsed = []
+    if not isinstance(parsed, list):
+        parsed = []
+    result = [p if isinstance(p, list) else [] for p in parsed][:photo_count]
+    while len(result) < photo_count:
+        result.append([])
+    return result
 
 
 @app.post("/styles", response_class=HTMLResponse)
@@ -354,6 +374,7 @@ async def styles_create(
     music_enabled: str = Form("off"),
     text_style: str = Form("outline"),       # "bubble" | "outline"
     text_placement: str = Form("top"),       # "top" | "center" | "belly" | "bottom"
+    position_photos_json: str = Form("[]"),
 ):
     user_id = _session_user_id(request)
     if not user_id:
@@ -361,6 +382,7 @@ async def styles_create(
 
     example_texts = _parse_example_stories(examples)
     photo_count = max(1, min(10, photo_count))
+    position_photos = _parse_position_photos(position_photos_json, photo_count)
 
     async with db.get_session() as session:
         session.add(db.ContentStyle(
@@ -372,6 +394,7 @@ async def styles_create(
             music_enabled=(music_enabled == "on"),
             text_style=text_style,
             text_placement=text_placement,
+            position_photos=position_photos,
         ))
         await session.commit()
 
@@ -389,6 +412,7 @@ async def styles_edit(
     music_enabled: str = Form("off"),
     text_style: str = Form("outline"),
     text_placement: str = Form("top"),
+    position_photos_json: str = Form("[]"),
 ):
     user_id = _session_user_id(request)
     if not user_id:
@@ -396,6 +420,7 @@ async def styles_edit(
 
     example_texts = _parse_example_stories(examples)
     photo_count = max(1, min(10, photo_count))
+    position_photos = _parse_position_photos(position_photos_json, photo_count)
 
     async with db.get_session() as session:
         style = await session.get(db.ContentStyle, style_id)
@@ -407,6 +432,7 @@ async def styles_edit(
             style.music_enabled = (music_enabled == "on")
             style.text_style = text_style
             style.text_placement = text_placement
+            style.position_photos = position_photos
             await session.commit()
 
     return RedirectResponse("/styles", status_code=303)
@@ -429,9 +455,10 @@ async def styles_preview(style_id: str, request: Request):
         if not photos:
             return RedirectResponse("/library")
 
+        photos_by_id = {p.id: p for p in photos}
         pool = photos.copy()
         random.shuffle(pool)
-        chosen = [pool[i % len(pool)] for i in range(style.photo_count)]
+        chosen = _pick_photos_for_style(style, photos_by_id, pool, [0])
 
         no_text = style.overlay_position == "none"
         ai_result = await ai_writer.generate_content_piece(
@@ -603,9 +630,10 @@ async def posting_publish_now(
         if not photos:
             return RedirectResponse("/library", status_code=303)
 
+        photos_by_id = {p.id: p for p in photos}
         pool = photos.copy()
         random.shuffle(pool)
-        chosen = [pool[i % len(pool)] for i in range(style.photo_count)]
+        chosen = _pick_photos_for_style(style, photos_by_id, pool, [0])
 
         item = db.GeneratedContent(
             user_id=user_id,
@@ -634,6 +662,30 @@ def _draw_photos(pool: list[db.Photo], cursor: list[int], n: int) -> list[db.Pho
         picked.append(pool[cursor[0] % len(pool)])
         cursor[0] += 1
     return picked
+
+
+def _pick_photos_for_style(
+    style: db.ContentStyle,
+    photos_by_id: dict[str, db.Photo],
+    pool: list[db.Photo],
+    cursor: list[int],
+) -> list[db.Photo]:
+    """
+    Choisit une photo par position du carrousel. Si le style restreint une
+    position à certaines photos (position_photos), on tire parmi elles ;
+    sinon (comportement par défaut) on pioche dans toute la bibliothèque
+    via le pool tournant partagé.
+    """
+    position_photos = style.position_photos or []
+    chosen = []
+    for i in range(style.photo_count):
+        allowed_ids = position_photos[i] if i < len(position_photos) else []
+        allowed_photos = [photos_by_id[pid] for pid in allowed_ids if pid in photos_by_id]
+        if allowed_photos:
+            chosen.append(random.choice(allowed_photos))
+        else:
+            chosen.extend(_draw_photos(pool, cursor, 1))
+    return chosen
 
 
 async def _run_batch(user_id: str, content_ids: list[str]):
@@ -771,13 +823,14 @@ async def posting_generate(
                 occurrences.append((occurrence_date, rule, style))
         occurrences.sort(key=lambda o: o[0])
 
+        photos_by_id = {p.id: p for p in photos}
         pool = photos.copy()
         random.shuffle(pool)
         cursor = [0]
 
         content_ids = []
         for occurrence_date, rule, style in occurrences:
-            picked = _draw_photos(pool, cursor, style.photo_count)
+            picked = _pick_photos_for_style(style, photos_by_id, pool, cursor)
             item = db.GeneratedContent(
                 user_id=user_id,
                 style_id=style.id,

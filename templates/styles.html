@@ -13,6 +13,37 @@
 <body class="bg-gray-50 text-gray-900 antialiased min-h-screen">
   {% include "_nav.html" %}
 
+  {% macro position_picker(uid, photos, photo_count_value, position_photos) %}
+  <div>
+    <label class="block text-xs font-medium text-gray-500 mb-1">Quelle photo à quelle position ? (optionnel)</label>
+    <p class="text-[11px] text-gray-400 mb-2">
+      Par défaut, n'importe quelle photo de la bibliothèque peut être tirée à chaque position.
+      Coche une ou plusieurs photos sur une position pour la restreindre à ces photos-là.
+    </p>
+    {% if not photos %}
+    <p class="text-xs text-gray-400 italic">Ajoute des photos à ta bibliothèque pour personnaliser les positions.</p>
+    {% else %}
+    <div id="positions-{{ uid }}" class="space-y-3">
+      {% for i in range(10) %}
+      <div class="position-block border border-gray-100 rounded-lg p-3" data-position="{{ i }}" style="{{ '' if i < photo_count_value else 'display:none' }}">
+        <p class="text-xs font-medium text-gray-600 mb-2">Position {{ i + 1 }}</p>
+        <div class="flex flex-wrap gap-2">
+          {% for photo in photos %}
+          <label class="cursor-pointer">
+            <input type="checkbox" class="pos-check sr-only peer" data-uid="{{ uid }}" data-position="{{ i }}" value="{{ photo.id }}"
+              {{ 'checked' if position_photos and i < position_photos|length and photo.id in position_photos[i] else '' }}/>
+            <img src="{{ photo.url }}" class="w-12 h-12 rounded object-cover border-2 border-transparent peer-checked:border-indigo-500"/>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <input type="hidden" name="position_photos_json" id="posjson-{{ uid }}" value="[]"/>
+  </div>
+  {% endmacro %}
+
   <main class="max-w-3xl mx-auto px-6 py-10">
     <h1 class="text-2xl font-bold mb-1">Styles de contenu</h1>
     <p class="text-sm text-gray-500 mb-8">
@@ -34,7 +65,8 @@
         <div class="grid sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1.5">Nombre de photos par publication</label>
-            <input type="number" name="photo_count" min="1" max="10" value="1"
+            <input type="number" name="photo_count" id="photo_count-create" min="1" max="10" value="1"
+              oninput="updatePositions('create', this.value)"
               class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none"/>
           </div>
           <div>
@@ -80,6 +112,8 @@
           <p class="text-[11px] text-gray-400 mt-1.5">Chaque bloc = une histoire complète, une ligne par photo du carrousel. L'IA s'en inspire pour écrire de nouvelles histoires dans le même esprit.</p>
         </div>
 
+        {{ position_picker('create', photos, 1, []) }}
+
         <button type="submit" class="w-full grad-bg text-white font-semibold rounded-xl py-3">Enregistrer le style</button>
       </form>
     </div>
@@ -113,6 +147,9 @@
           {% if style.music_enabled %}
           <span class="text-xs bg-indigo-100 text-indigo-700 rounded-full px-2.5 py-1">🎵 Musique auto</span>
           {% endif %}
+          {% if style.position_photos and style.position_photos|selectattr('0', 'defined')|list %}
+          <span class="text-xs bg-indigo-100 text-indigo-700 rounded-full px-2.5 py-1">📌 Positions personnalisées</span>
+          {% endif %}
         </div>
         {% if style.example_texts %}
         <div class="space-y-2">
@@ -134,7 +171,8 @@
             <div class="grid sm:grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-medium text-gray-500 mb-1.5">Nombre de photos par publication</label>
-                <input type="number" name="photo_count" min="1" max="10" value="{{ style.photo_count }}"
+                <input type="number" name="photo_count" id="photo_count-edit-{{ style.id }}" min="1" max="10" value="{{ style.photo_count }}"
+                  oninput="updatePositions('edit-{{ style.id }}', this.value)"
                   class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none"/>
               </div>
               <div>
@@ -172,6 +210,9 @@
               <textarea name="examples" rows="6"
                 class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:border-indigo-500 outline-none">{{ style.example_texts|stories_to_text }}</textarea>
             </div>
+
+            {{ position_picker('edit-' + style.id, photos, style.photo_count, style.position_photos) }}
+
             <button type="submit" class="w-full grad-bg text-white font-semibold rounded-xl py-2.5">Enregistrer les modifications</button>
           </form>
         </div>
@@ -187,6 +228,32 @@
     function toggleEdit(id) {
       document.getElementById(id).classList.toggle('hidden');
     }
+
+    function updatePositions(uid, count) {
+      count = parseInt(count) || 1;
+      document.querySelectorAll('#positions-' + uid + ' .position-block').forEach(function (block) {
+        const pos = parseInt(block.dataset.position);
+        block.style.display = pos < count ? '' : 'none';
+      });
+    }
+
+    document.querySelectorAll('form').forEach(function (form) {
+      form.addEventListener('submit', function () {
+        const hidden = form.querySelector('input[name="position_photos_json"]');
+        if (!hidden) return;
+        const uid = hidden.id.replace('posjson-', '');
+        const countInput = document.getElementById('photo_count-' + uid);
+        const count = countInput ? (parseInt(countInput.value) || 1) : 1;
+        const result = [];
+        for (let i = 0; i < count; i++) {
+          const checked = Array.from(
+            document.querySelectorAll('.pos-check[data-uid="' + uid + '"][data-position="' + i + '"]:checked')
+          ).map(function (c) { return c.value; });
+          result.push(checked);
+        }
+        hidden.value = JSON.stringify(result);
+      });
+    });
   </script>
 </body>
 </html>
