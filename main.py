@@ -39,6 +39,7 @@ Routes principales — 3 espaces : Bibliothèque, Styles, Publication.
    social (voir _ensure_profile) — l'inscription elle-même (email + nom de
    boutique) est gérée entièrement par nous, sans dépendre du quota Zernio.
 """
+import calendar
 import datetime
 import os
 import base64
@@ -794,11 +795,46 @@ async def posting_generate(
     return RedirectResponse("/queue", status_code=303)
 
 
+MONTH_LABELS_FR = [
+    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+]
+
+
+def _build_calendar(contents: list, year: int, month: int) -> dict:
+    """Grille du mois (semaines de 7 jours, lundi en premier) + nb de contenus par jour."""
+    by_date: dict[datetime.date, list] = {}
+    for item in contents:
+        d = (item.scheduled_for or item.created_at).date()
+        by_date.setdefault(d, []).append(item)
+
+    cal = calendar.Calendar(firstweekday=0)
+    today = datetime.date.today()
+    weeks = []
+    for week in cal.monthdatescalendar(year, month):
+        weeks.append([
+            {
+                "date": d,
+                "in_month": d.month == month,
+                "is_today": d == today,
+                "entries": sorted(by_date.get(d, []), key=lambda c: (c.scheduled_for or c.created_at)),
+            }
+            for d in week
+        ])
+    return {"weeks": weeks, "label": f"{MONTH_LABELS_FR[month - 1]} {year}"}
+
+
 @app.api_route("/queue", methods=["GET", "HEAD"], response_class=HTMLResponse)
-async def queue_page(request: Request):
+async def queue_page(request: Request, month: str = ""):
     user_id = _session_user_id(request)
     if not user_id:
         return RedirectResponse("/")
+
+    today = datetime.date.today()
+    try:
+        year, mon = (int(p) for p in month.split("-"))
+    except ValueError:
+        year, mon = today.year, today.month
 
     async with db.get_session() as session:
         user = await db.get_user(session, user_id)
@@ -806,9 +842,34 @@ async def queue_page(request: Request):
             return RedirectResponse("/")
         contents = await db.list_contents(session, user_id)
         pending = any(c.status == "pending" for c in contents)
+
+        cal_data = _build_calendar(contents, year, mon)
+        prev_month = (datetime.date(year, mon, 1) - datetime.timedelta(days=1))
+        next_month = (datetime.date(year, mon, 28) + datetime.timedelta(days=7)).replace(day=1)
+
+        agenda: dict[datetime.date, list] = {}
+        for item in contents:
+            d = (item.scheduled_for or item.created_at).date()
+            agenda.setdefault(d, []).append(item)
+        agenda_days = []
+        for d, items in sorted(agenda.items()):
+            items.sort(key=lambda c: (c.scheduled_for or c.created_at))
+            label = f"{WEEKDAY_LABELS[d.weekday()]} {d.day} {MONTH_LABELS_FR[d.month - 1]} {d.year}"
+            agenda_days.append({"date": d, "label": label, "entries": items})
+
         return templates.TemplateResponse(
             "queue.html",
-            {"request": request, "business_name": user.business_name, "contents": contents, "pending": pending},
+            {
+                "request": request,
+                "business_name": user.business_name,
+                "contents": contents,
+                "pending": pending,
+                "calendar": cal_data,
+                "agenda_days": agenda_days,
+                "current_month": f"{year:04d}-{mon:02d}",
+                "prev_month": f"{prev_month.year:04d}-{prev_month.month:02d}",
+                "next_month": f"{next_month.year:04d}-{next_month.month:02d}",
+            },
         )
 
 

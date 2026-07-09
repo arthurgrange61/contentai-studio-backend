@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ContentAI Studio — File d'attente</title>
-  {% if pending %}<meta http-equiv="refresh" content="5">{% endif %}
+  {% if pending %}<meta http-equiv="refresh" content="8">{% endif %}
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -14,7 +14,7 @@
 <body class="bg-gray-50 text-gray-900 antialiased min-h-screen">
   {% include "_nav.html" %}
 
-  <main class="max-w-3xl mx-auto px-6 py-10">
+  <main class="max-w-4xl mx-auto px-6 py-10">
     <div class="flex items-center justify-between mb-1">
       <h1 class="text-2xl font-bold">File d'attente</h1>
       {% if pending %}
@@ -23,38 +23,85 @@
       </span>
       {% endif %}
     </div>
-    <p class="text-sm text-gray-500 mb-8">Vos contenus générés, programmés ou publiés.</p>
+    <p class="text-sm text-gray-500 mb-6">Vue d'ensemble de tes publications programmées, en cours et publiées.</p>
 
-    {% if contents %}
-    <div class="space-y-3">
-      {% for item in contents %}
-      <div class="bg-white border border-gray-200 rounded-2xl p-4 flex gap-4 items-center">
-        {% if item.composed_urls %}
-        <img src="{{ item.composed_urls[0] }}" class="w-16 h-16 rounded-lg object-cover shrink-0"/>
-        {% elif item.photo_urls %}
-        <img src="{{ item.photo_urls[0] }}" class="w-16 h-16 rounded-lg object-cover shrink-0 opacity-50"/>
-        {% endif %}
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium truncate">{{ item.caption or item.overlay_text or 'Génération en cours…' }}</p>
-          <p class="text-xs text-gray-400">
-            {% if item.scheduled_for %}Programmé le {{ item.scheduled_for.strftime('%d/%m/%Y à %H:%M') }}{% endif %}
-          </p>
-          {% if item.status == 'failed' and item.error %}
-          <p class="text-xs text-red-600 mt-1">{{ item.error }}</p>
-          {% endif %}
+    <!-- Calendrier -->
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 mb-8">
+      <div class="flex items-center justify-between mb-4">
+        <a href="/queue?month={{ prev_month }}" class="text-sm text-gray-400 hover:text-gray-900 px-2">←</a>
+        <h2 class="text-sm font-semibold">{{ calendar.label }}</h2>
+        <a href="/queue?month={{ next_month }}" class="text-sm text-gray-400 hover:text-gray-900 px-2">→</a>
+      </div>
+
+      <div class="grid grid-cols-7 gap-1 text-center text-[10px] text-gray-400 mb-1">
+        <span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
+      </div>
+      <div class="grid grid-cols-7 gap-1">
+        {% for week in calendar.weeks %}
+          {% for day in week %}
+          <a href="#day-{{ day.date.isoformat() }}"
+             class="aspect-square rounded-lg border flex flex-col items-center justify-center text-xs relative
+               {{ 'border-indigo-500 bg-indigo-50' if day.is_today else 'border-gray-100' }}
+               {{ '' if day.in_month else 'opacity-30' }}
+               {{ 'hover:border-indigo-300' if day.entries else '' }}">
+            <span class="{{ 'font-bold text-indigo-600' if day.is_today else 'text-gray-700' }}">{{ day.date.day }}</span>
+            {% if day.entries %}
+            <span class="mt-0.5 flex gap-0.5">
+              {% for item in day.entries[:3] %}
+              <span class="w-1.5 h-1.5 rounded-full
+                {{ 'bg-amber-400' if item.status == 'pending' }}
+                {{ 'bg-green-500' if item.status == 'scheduled' }}
+                {{ 'bg-red-400' if item.status == 'failed' }}
+                {{ 'bg-indigo-500' if item.status == 'published' }}"></span>
+              {% endfor %}
+            </span>
+            {% endif %}
+          </a>
+          {% endfor %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Agenda -->
+    {% if agenda_days %}
+    <div class="space-y-6">
+      {% for day in agenda_days %}
+      <div id="day-{{ day.date.isoformat() }}">
+        <p class="text-xs font-semibold text-gray-500 mb-2">{{ day.label }}</p>
+        <div class="space-y-2">
+          {% for item in day.entries %}
+          <div class="bg-white border border-gray-200 rounded-2xl p-4 flex gap-4 items-center">
+            {% if item.composed_urls %}
+            <img src="{{ item.composed_urls[0] }}" class="w-16 h-16 rounded-lg object-cover shrink-0"/>
+            {% elif item.photo_urls %}
+            <img src="{{ item.photo_urls[0] }}" class="w-16 h-16 rounded-lg object-cover shrink-0 opacity-50"/>
+            {% endif %}
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium truncate">{{ item.caption or item.overlay_text or 'Génération en cours…' }}</p>
+              <p class="text-xs text-gray-400">
+                {% if item.scheduled_for %}{{ item.scheduled_for.strftime('%H:%M') }}{% endif %}
+                {% if item.photo_urls %} · {{ item.photo_urls|length }} photo{{ 's' if item.photo_urls|length > 1 else '' }}{% endif %}
+              </p>
+              {% if item.status == 'failed' and item.error %}
+              <p class="text-xs text-red-600 mt-1">{{ item.error }}</p>
+              {% endif %}
+            </div>
+            <span class="shrink-0 text-xs font-medium px-2.5 py-1 rounded-full
+              {{ 'bg-amber-100 text-amber-700' if item.status == 'pending' }}
+              {{ 'bg-green-100 text-green-700' if item.status == 'scheduled' }}
+              {{ 'bg-red-100 text-red-700' if item.status == 'failed' }}
+              {{ 'bg-indigo-100 text-indigo-700' if item.status == 'published' }}">
+              {{ {'pending':'⏳ En cours','scheduled':'✓ Programmé','failed':'✕ Échec','published':'✓ Publié'}[item.status] }}
+            </span>
+          </div>
+          {% endfor %}
         </div>
-        <span class="shrink-0 text-xs font-medium px-2.5 py-1 rounded-full
-          {{ 'bg-amber-100 text-amber-700' if item.status == 'pending' }}
-          {{ 'bg-green-100 text-green-700' if item.status == 'scheduled' }}
-          {{ 'bg-red-100 text-red-700' if item.status == 'failed' }}">
-          {{ {'pending':'⏳ En cours','scheduled':'✓ Programmé','failed':'✕ Échec','published':'✓ Publié'}[item.status] }}
-        </span>
       </div>
       {% endfor %}
     </div>
     {% else %}
     <p class="text-sm text-gray-400 text-center py-10">
-      Aucun contenu généré pour l'instant — <a href="/generate" class="underline text-indigo-600">lance une génération</a>.
+      Aucun contenu généré pour l'instant — <a href="/posting" class="underline text-indigo-600">lance une publication</a>.
     </p>
     {% endif %}
   </main>
