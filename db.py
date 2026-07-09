@@ -101,6 +101,7 @@ class PostingRule(Base):
     day_of_week: Mapped[int] = mapped_column(Integer)  # 0 = lundi ... 6 = dimanche
     time: Mapped[str] = mapped_column(String)          # "HH:MM"
     account_ids: Mapped[list] = mapped_column(JSON, default=list)  # comptes Zernio cibles
+    active: Mapped[bool] = mapped_column(Boolean, default=True)    # mise en pause sans supprimer
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
 
     user: Mapped[StudioUser] = relationship(back_populates="posting_rules")
@@ -145,6 +146,7 @@ _MIGRATIONS = [
     "ALTER TABLE studio_users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR DEFAULT 'inactive'",
     "ALTER TABLE content_styles ADD COLUMN IF NOT EXISTS text_style VARCHAR DEFAULT 'outline'",
     "ALTER TABLE content_styles ADD COLUMN IF NOT EXISTS text_placement VARCHAR DEFAULT 'top'",
+    "ALTER TABLE posting_rules ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true",
 ]
 
 

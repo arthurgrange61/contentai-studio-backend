@@ -458,6 +458,16 @@ async def styles_delete(style_id: str, request: Request):
 WEEKDAY_LABELS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
 
 
+def _next_occurrence(day_of_week: int, time_str: str, now: datetime.datetime | None = None) -> datetime.datetime:
+    now = now or datetime.datetime.utcnow()
+    hour, minute = (int(p) for p in time_str.split(":"))
+    days_until = (day_of_week - now.weekday()) % 7
+    candidate = (now + datetime.timedelta(days=days_until)).replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if candidate <= now:
+        candidate += datetime.timedelta(days=7)
+    return candidate
+
+
 @app.api_route("/posting", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def posting_page(request: Request):
     user_id = _session_user_id(request)
@@ -471,6 +481,14 @@ async def posting_page(request: Request):
         styles = await db.list_styles(session, user_id)
         rules = await db.list_posting_rules(session, user_id)
         accounts = await zernio.list_accounts(user.profile_id) if user.profile_id else []
+
+        rules_by_day = {i: [] for i in range(7)}
+        next_occurrence = {}
+        for rule in rules:
+            rules_by_day[rule.day_of_week].append(rule)
+            if rule.active:
+                next_occurrence[rule.id] = _next_occurrence(rule.day_of_week, rule.time)
+
         return templates.TemplateResponse(
             "posting.html",
             {
@@ -478,6 +496,8 @@ async def posting_page(request: Request):
                 "business_name": user.business_name,
                 "styles": styles,
                 "rules": rules,
+                "rules_by_day": rules_by_day,
+                "next_occurrence": next_occurrence,
                 "accounts": accounts,
                 "weekday_labels": WEEKDAY_LABELS,
             },
@@ -505,6 +525,20 @@ async def posting_rule_create(
     return RedirectResponse("/posting", status_code=303)
 
 
+@app.post("/posting/rules/{rule_id}/toggle")
+async def posting_rule_toggle(rule_id: str, request: Request):
+    user_id = _session_user_id(request)
+    if not user_id:
+        return RedirectResponse("/", status_code=303)
+
+    async with db.get_session() as session:
+        rule = await session.get(db.PostingRule, rule_id)
+        if rule and rule.user_id == user_id:
+            rule.active = not rule.active
+            await session.commit()
+    return RedirectResponse("/posting", status_code=303)
+
+
 @app.post("/posting/rules/delete/{rule_id}")
 async def posting_rule_delete(rule_id: str, request: Request):
     user_id = _session_user_id(request)
@@ -517,6 +551,51 @@ async def posting_rule_delete(rule_id: str, request: Request):
             await session.delete(rule)
             await session.commit()
     return RedirectResponse("/posting", status_code=303)
+
+
+@app.post("/posting/publish-now")
+async def posting_publish_now(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    style_id: str = Form(...),
+    account_ids: list[str] = Form(default=[]),
+):
+    """Génère et publie immédiatement une pièce de contenu avec ce style, sans passer par le planning."""
+    user_id = _session_user_id(request)
+    if not user_id:
+        return RedirectResponse("/", status_code=303)
+
+    if not account_ids:
+        return RedirectResponse("/posting", status_code=303)
+
+    async with db.get_session() as session:
+        user = await db.get_user(session, user_id)
+        style = await session.get(db.ContentStyle, style_id)
+        if not user or not user.profile_id or not style:
+            return RedirectResponse("/posting", status_code=303)
+
+        photos = await db.list_photos(session, user_id)
+        if not photos:
+            return RedirectResponse("/library", status_code=303)
+
+        pool = photos.copy()
+        random.shuffle(pool)
+        chosen = [pool[i % len(pool)] for i in range(style.photo_count)]
+
+        item = db.GeneratedContent(
+            user_id=user_id,
+            style_id=style.id,
+            photo_urls=[p.url for p in chosen],
+            account_ids=account_ids,
+            scheduled_for=None,  # None -> Zernio publie immédiatement (publishNow)
+            status="pending",
+        )
+        session.add(item)
+        await session.commit()
+        content_id = item.id
+
+    background_tasks.add_task(_run_batch, user_id, [content_id])
+    return RedirectResponse("/queue", status_code=303)
 
 
 def _draw_photos(pool: list[db.Photo], cursor: list[int], n: int) -> list[db.Photo]:
@@ -636,7 +715,7 @@ async def posting_generate(
         if not user or not user.profile_id:
             return RedirectResponse("/posting", status_code=303)
 
-        rules = await db.list_posting_rules(session, user_id)
+        rules = [r for r in await db.list_posting_rules(session, user_id) if r.active]
         photos = await db.list_photos(session, user_id)
         if not rules or not photos:
             return RedirectResponse("/posting", status_code=303)

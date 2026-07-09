@@ -13,11 +13,10 @@
 <body class="bg-gray-50 text-gray-900 antialiased min-h-screen">
   {% include "_nav.html" %}
 
-  <main class="max-w-3xl mx-auto px-6 py-10">
-    <h1 class="text-2xl font-bold mb-1">Publication automatique</h1>
+  <main class="max-w-5xl mx-auto px-6 py-10">
+    <h1 class="text-2xl font-bold mb-1">Publication</h1>
     <p class="text-sm text-gray-500 mb-8">
-      Définis quel style publier, quel jour et à quelle heure — ça se répète chaque semaine.
-      Ensuite, génère le planning pour créer et programmer automatiquement le contenu à venir.
+      Publie tout de suite, ou mets en place un planning récurrent qui se répète chaque semaine.
     </p>
 
     {% if not styles %}
@@ -29,8 +28,76 @@
       <p class="text-sm text-amber-800">Connecte d'abord un compte dans les <a href="/settings" class="underline font-medium">paramètres</a>.</p>
     </div>
     {% else %}
+
+    <!-- Publier maintenant -->
     <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-7 mb-8">
-      <h2 class="text-lg font-semibold mb-4">Nouvelle règle récurrente</h2>
+      <h2 class="text-lg font-semibold mb-1">⚡ Publier maintenant</h2>
+      <p class="text-sm text-gray-500 mb-4">Génère et publie une pièce de contenu immédiatement, avec le style de ton choix.</p>
+      <form method="post" action="/posting/publish-now" class="space-y-4">
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Style</label>
+            <select name="style_id" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:border-indigo-500 outline-none">
+              {% for style in styles %}
+              <option value="{{ style.id }}">{{ style.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Comptes cibles</label>
+            <div class="flex flex-wrap gap-2 mt-1">
+              {% for acc in accounts %}
+              <label class="flex items-center gap-1.5 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 cursor-pointer has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                <input type="checkbox" name="account_ids" value="{{ acc._id }}" class="accent-indigo-600"/>
+                <span class="font-medium capitalize">{{ acc.platform }}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="w-full grad-bg text-white font-semibold rounded-xl py-3">Publier maintenant</button>
+      </form>
+    </div>
+
+    <!-- Planning hebdomadaire -->
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-7 mb-8">
+      <h2 class="text-lg font-semibold mb-4">Planning hebdomadaire</h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-7 gap-3 mb-6">
+        {% for label in weekday_labels %}
+        <div class="border border-gray-100 rounded-xl p-3">
+          <p class="text-xs font-semibold text-gray-500 mb-2">{{ label }}</p>
+          {% if rules_by_day[loop.index0] %}
+          <div class="space-y-2">
+            {% for rule in rules_by_day[loop.index0] %}
+            <div class="border border-gray-100 rounded-lg p-2 {{ '' if rule.active else 'opacity-40' }}">
+              <p class="text-xs font-medium">{{ rule.time }}</p>
+              <p class="text-[11px] text-gray-500 truncate">{{ rule.style.name if rule.style else '?' }}</p>
+              <p class="text-[10px] text-gray-400">{{ rule.account_ids|length }} compte(s)</p>
+              {% if rule.active and rule.id in next_occurrence %}
+              <p class="text-[10px] text-indigo-500 mt-1">Prochaine : {{ next_occurrence[rule.id].strftime('%d/%m %H:%M') }}</p>
+              {% endif %}
+              <div class="flex items-center gap-2 mt-1.5">
+                <form method="post" action="/posting/rules/{{ rule.id }}/toggle">
+                  <button type="submit" class="text-[10px] text-gray-500 hover:text-gray-900 underline">
+                    {{ 'Reprendre' if not rule.active else 'Pause' }}
+                  </button>
+                </form>
+                <form method="post" action="/posting/rules/delete/{{ rule.id }}">
+                  <button type="submit" class="text-[10px] text-gray-400 hover:text-red-600 underline">Supprimer</button>
+                </form>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-[11px] text-gray-300">—</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      <h3 class="text-sm font-semibold mb-3">Ajouter une règle</h3>
       <form method="post" action="/posting/rules" class="space-y-4">
         <div class="grid sm:grid-cols-3 gap-4">
           <div>
@@ -74,28 +141,10 @@
     </div>
 
     {% if rules %}
-    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-7 mb-8">
-      <h2 class="text-lg font-semibold mb-4">Planning hebdomadaire</h2>
-      <div class="space-y-2">
-        {% for rule in rules %}
-        <div class="flex items-center justify-between border border-gray-100 rounded-xl px-4 py-3 text-sm">
-          <span>
-            <span class="font-medium">{{ weekday_labels[rule.day_of_week] }} à {{ rule.time }}</span>
-            <span class="text-gray-400"> — {{ rule.style.name if rule.style else '?' }}</span>
-            <span class="text-gray-400"> · {{ rule.account_ids|length }} compte(s)</span>
-          </span>
-          <form method="post" action="/posting/rules/delete/{{ rule.id }}">
-            <button type="submit" class="text-xs text-gray-400 hover:text-red-600">Supprimer</button>
-          </form>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-
     <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-7">
       <h2 class="text-lg font-semibold mb-1">Générer le planning</h2>
       <p class="text-sm text-gray-500 mb-4">
-        Crée et programme automatiquement toutes les occurrences à venir de tes règles.
+        Crée et programme automatiquement toutes les occurrences à venir de tes règles actives.
       </p>
       <form method="post" action="/posting/generate" class="flex items-end gap-3">
         <div class="flex-1">
@@ -106,8 +155,6 @@
         <button type="submit" class="grad-bg text-white font-semibold rounded-xl px-6 py-2.5">Générer</button>
       </form>
     </div>
-    {% else %}
-    <p class="text-sm text-gray-400 text-center py-6">Aucune règle pour l'instant — ajoute-en une ci-dessus.</p>
     {% endif %}
     {% endif %}
   </main>
