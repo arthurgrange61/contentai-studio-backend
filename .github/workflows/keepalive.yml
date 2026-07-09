@@ -1,0 +1,34 @@
+name: Keep Render awake
+
+# Garde l'instance Render éveillée (sinon ~50s de réveil à froid).
+#
+# Pourquoi cette forme : GitHub throttle fortement les crons `schedule`
+# (un `*/10` peut ne tourner qu'une fois par heure). On contourne en lançant
+# UN job qui BOUCLE en continu ~5h50 et pingue toutes les 4 min lui-même.
+# Le `concurrency` (sans annulation) fait que le run planifié suivant ATTEND
+# la fin du run courant puis démarre → couverture quasi continue.
+# Repo public = minutes Actions gratuites, donc les jobs longs ne coûtent rien.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # relance fréquente (même throttlée, un run reste en attente)
+  workflow_dispatch:          # bouton "Run workflow" pour lancer à la main
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false   # le nouveau run attend la fin du courant (pas de trou)
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350       # ~5h50 (max GitHub = 6h)
+    steps:
+      - name: Ping continu (toutes les 4 min pendant ~5h40)
+        run: |
+          URL="https://contentai-studio-backend-a0ch.onrender.com/healthz"
+          END=$(( $(date +%s) + 20400 ))   # ~5h40
+          while [ "$(date +%s)" -lt "$END" ]; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "$URL" || echo "000")
+            echo "$(date -u) -> HTTP $code"
+            sleep 240
+          done
