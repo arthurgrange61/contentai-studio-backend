@@ -670,7 +670,13 @@ async def _run_batch(user_id: str, content_ids: list[str]):
                         else:
                             composed_urls.append(photo_url)
 
-                scheduled_iso = item.scheduled_for.isoformat() if item.scheduled_for else None
+                # +5 min de marge côté Zernio pour éviter les bugs de publication trop
+                # proche de "maintenant" (l'heure affichée au client reste inchangée,
+                # seul l'appel à Zernio est décalé).
+                scheduled_iso = (
+                    (item.scheduled_for + datetime.timedelta(minutes=5)).isoformat()
+                    if item.scheduled_for else None
+                )
                 result = await zernio.create_post(
                     profile_id=user.profile_id,
                     accounts=selected_accounts,
