@@ -17,8 +17,9 @@
     <h1 class="text-2xl font-bold mb-1">Styles de contenu</h1>
     <p class="text-sm text-gray-500 mb-8">
       Un style est une recette complète de génération : combien de photos par publication,
-      où incruster le texte, si une musique s'ajoute, et le ton que l'IA doit adopter.
-      Crée-en plusieurs pour varier ton contenu.
+      si le texte raconte une histoire qui se poursuit de slide en slide, si une musique
+      s'ajoute, et des exemples d'histoires pour guider le ton de l'IA. Crée-en plusieurs
+      pour varier ton contenu.
     </p>
 
     <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-7 mb-8">
@@ -37,12 +38,10 @@
               class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none"/>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1.5">Texte incrusté sur</label>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Texte incrusté</label>
             <select name="overlay_position" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none">
-              <option value="first" selected>La 1ère photo uniquement</option>
-              <option value="last">La dernière photo uniquement</option>
-              <option value="all">Toutes les photos</option>
-              <option value="none">Aucune (légende seule)</option>
+              <option value="all" selected>Histoire qui se poursuit sur chaque photo</option>
+              <option value="none">Aucun texte (légende seule)</option>
             </select>
           </div>
         </div>
@@ -75,9 +74,10 @@
         </label>
 
         <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1.5">Exemples de textes (un par ligne)</label>
-          <textarea name="examples" rows="5" placeholder="Craquez pour nos pépites du moment ✨&#10;Le bijou qui change tout, dispo maintenant&#10;On a un petit secret à vous confier..."
+          <label class="block text-xs font-medium text-gray-500 mb-1.5">Exemples d'histoires (une ligne par slide, laisse une ligne vide entre deux histoires)</label>
+          <textarea name="examples" rows="8" placeholder="J'ai une histoire pour vous&#10;Depuis petite j'aime les bijoux&#10;Donc j'ai créé ma marque&#10;Le lien est en bio&#10;&#10;Pourquoi j'ai lancé ma marque&#10;Rendre les beaux bijoux accessibles&#10;Sélectionnés avec soin&#10;Rejoins l'aventure, lien en bio"
             class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none"></textarea>
+          <p class="text-[11px] text-gray-400 mt-1.5">Chaque bloc = une histoire complète, une ligne par photo du carrousel. L'IA s'en inspire pour écrire de nouvelles histoires dans le même esprit.</p>
         </div>
 
         <button type="submit" class="w-full grad-bg text-white font-semibold rounded-xl py-3">Enregistrer le style</button>
@@ -91,7 +91,7 @@
         <div class="flex items-center justify-between mb-2">
           <h3 class="font-semibold">{{ style.name }}</h3>
           <div class="flex items-center gap-3">
-            <a href="/styles/{{ style.id }}/preview" class="text-xs text-indigo-600 hover:underline font-medium">Voir 3 exemples</a>
+            <a href="/styles/{{ style.id }}/preview" class="text-xs text-indigo-600 hover:underline font-medium">Voir un exemple</a>
             <button type="button" onclick="toggleEdit('edit-{{ style.id }}')" class="text-xs text-gray-500 hover:text-gray-900 font-medium">Modifier</button>
             <form method="post" action="/styles/delete/{{ style.id }}">
               <button type="submit" class="text-xs text-gray-400 hover:text-red-600">Supprimer</button>
@@ -103,7 +103,7 @@
             {{ style.photo_count }} photo{{ 's' if style.photo_count > 1 else '' }}
           </span>
           <span class="text-xs bg-gray-100 text-gray-600 rounded-full px-2.5 py-1">
-            Texte : {{ {'first':'1ère photo','last':'dernière photo','all':'toutes les photos','none':'aucune'}[style.overlay_position] }}
+            Texte : {{ {'first':'histoire','last':'histoire','all':'histoire','none':'aucun'}[style.overlay_position] }}
           </span>
           {% if style.overlay_position != 'none' %}
           <span class="text-xs bg-gray-100 text-gray-600 rounded-full px-2.5 py-1">
@@ -115,9 +115,11 @@
           {% endif %}
         </div>
         {% if style.example_texts %}
-        <ul class="text-xs text-gray-500 space-y-1">
-          {% for ex in style.example_texts %}<li>« {{ ex }} »</li>{% endfor %}
-        </ul>
+        <div class="space-y-2">
+          {% for story in style.example_texts %}
+          <p class="text-xs text-gray-500">« {{ story|join(' → ') }} »</p>
+          {% endfor %}
+        </div>
         {% else %}
         <p class="text-xs text-gray-400">Aucun exemple — l'IA improvisera un ton vendeur par défaut.</p>
         {% endif %}
@@ -136,12 +138,10 @@
                   class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none"/>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1.5">Texte incrusté sur</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1.5">Texte incrusté</label>
                 <select name="overlay_position" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none">
-                  <option value="first" {{ 'selected' if style.overlay_position == 'first' }}>La 1ère photo uniquement</option>
-                  <option value="last" {{ 'selected' if style.overlay_position == 'last' }}>La dernière photo uniquement</option>
-                  <option value="all" {{ 'selected' if style.overlay_position == 'all' }}>Toutes les photos</option>
-                  <option value="none" {{ 'selected' if style.overlay_position == 'none' }}>Aucune (légende seule)</option>
+                  <option value="all" {{ 'selected' if style.overlay_position != 'none' }}>Histoire qui se poursuit sur chaque photo</option>
+                  <option value="none" {{ 'selected' if style.overlay_position == 'none' }}>Aucun texte (légende seule)</option>
                 </select>
               </div>
             </div>
@@ -168,9 +168,9 @@
               <input type="checkbox" name="music_enabled" value="on" {{ 'checked' if style.music_enabled }} class="w-5 h-5 accent-indigo-600"/>
             </label>
             <div>
-              <label class="block text-xs font-medium text-gray-500 mb-1.5">Exemples de textes (un par ligne)</label>
-              <textarea name="examples" rows="4"
-                class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:border-indigo-500 outline-none">{{ style.example_texts|join('\n') }}</textarea>
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">Exemples d'histoires (une ligne par slide, ligne vide entre deux histoires)</label>
+              <textarea name="examples" rows="6"
+                class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:border-indigo-500 outline-none">{{ style.example_texts|stories_to_text }}</textarea>
             </div>
             <button type="submit" class="w-full grad-bg text-white font-semibold rounded-xl py-2.5">Enregistrer les modifications</button>
           </form>

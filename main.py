@@ -80,6 +80,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="ContentAI Studio — Zernio integration", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+templates.env.filters["stories_to_text"] = lambda stories: "\n\n".join(
+    "\n".join(story) for story in (stories or [])
+)
 
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "dev-secret-change-me")
 signer = URLSafeSerializer(SESSION_SECRET, salt="contentai-studio-session")
@@ -153,6 +156,20 @@ async def home(request: Request):
 
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _parse_example_stories(raw: str) -> list[list[str]]:
+    """
+    Le champ "Exemples" contient des histoires (une ligne par slide), les
+    histoires étant séparées par une ligne vide. Renvoie une liste d'histoires,
+    chacune étant la liste de ses lignes.
+    """
+    stories = []
+    for block in raw.replace("\r\n", "\n").split("\n\n"):
+        lines = [line.strip() for line in block.splitlines() if line.strip()]
+        if lines:
+            stories.append(lines)
+    return stories
 
 
 @app.post("/signup", response_class=HTMLResponse)
@@ -341,7 +358,7 @@ async def styles_create(
     if not user_id:
         return RedirectResponse("/", status_code=303)
 
-    example_texts = [line.strip() for line in examples.splitlines() if line.strip()]
+    example_texts = _parse_example_stories(examples)
     photo_count = max(1, min(10, photo_count))
 
     async with db.get_session() as session:
@@ -376,7 +393,7 @@ async def styles_edit(
     if not user_id:
         return RedirectResponse("/", status_code=303)
 
-    example_texts = [line.strip() for line in examples.splitlines() if line.strip()]
+    example_texts = _parse_example_stories(examples)
     photo_count = max(1, min(10, photo_count))
 
     async with db.get_session() as session:
@@ -415,26 +432,20 @@ async def styles_preview(style_id: str, request: Request):
         random.shuffle(pool)
         chosen = [pool[i % len(pool)] for i in range(style.photo_count)]
 
+        no_text = style.overlay_position == "none"
         ai_result = await ai_writer.generate_content_piece(
             business_name=user.business_name,
             example_texts=style.example_texts or [],
             piece_index=0,
             total_pieces=1,
+            num_slides=len(chosen),
         )
-
-        n = len(chosen)
-        overlay_indexes = {
-            "none": set(),
-            "first": {0},
-            "last": {n - 1},
-            "all": set(range(n)),
-        }.get(style.overlay_position, {0})
 
         carousel_images = []
         async with httpx.AsyncClient(timeout=30) as client:
             for i, photo in enumerate(chosen):
                 photo_bytes = (await client.get(photo.url)).content
-                text = ai_result["overlay_text"] if i in overlay_indexes else ""
+                text = "" if no_text else ai_result["story_lines"][i]
                 composed = imaging.overlay_text_on_image(
                     photo_bytes, text, style=style.text_style, position=style.text_placement
                 )
@@ -447,6 +458,7 @@ async def styles_preview(style_id: str, request: Request):
                 "business_name": user.business_name,
                 "style": style,
                 "carousel_images": carousel_images,
+                "story_lines": [] if no_text else ai_result["story_lines"],
                 "caption": ai_result["caption"],
             },
         )
@@ -656,35 +668,30 @@ async def _run_batch(user_id: str, content_ids: list[str]):
                 # TikTok utilise la légende comme titre du carrousel photo, plafonné
                 # à 90 caractères — les autres plateformes sont bien plus larges.
                 has_tiktok = any(a.get("platform") == "tiktok" for a in selected_accounts)
+                n = len(item.photo_urls)
+                no_text = overlay_position == "none"
                 ai_result = await ai_writer.generate_content_piece(
                     business_name=user.business_name,
                     example_texts=style_examples,
                     piece_index=idx,
                     total_pieces=total,
+                    num_slides=n,
                     max_caption_length=90 if has_tiktok else 220,
                 )
-
-                n = len(item.photo_urls)
-                overlay_indexes = {
-                    "none": set(),
-                    "first": {0},
-                    "last": {n - 1},
-                    "all": set(range(n)),
-                }.get(overlay_position, {0})
 
                 composed_urls = []
                 async with httpx.AsyncClient(timeout=30) as client:
                     for i, photo_url in enumerate(item.photo_urls):
-                        if i in overlay_indexes:
-                            photo_bytes = (await client.get(photo_url)).content
-                            composed = imaging.overlay_text_on_image(
-                                photo_bytes, ai_result["overlay_text"], style=text_style, position=text_placement
-                            )
-                            composed_urls.append(
-                                await zernio.upload_media(f"generated_{content_id}_{i}.jpg", "image/jpeg", composed)
-                            )
-                        else:
+                        if no_text:
                             composed_urls.append(photo_url)
+                            continue
+                        photo_bytes = (await client.get(photo_url)).content
+                        composed = imaging.overlay_text_on_image(
+                            photo_bytes, ai_result["story_lines"][i], style=text_style, position=text_placement
+                        )
+                        composed_urls.append(
+                            await zernio.upload_media(f"generated_{content_id}_{i}.jpg", "image/jpeg", composed)
+                        )
 
                 # +5 min de marge côté Zernio pour éviter les bugs de publication trop
                 # proche de "maintenant" (l'heure affichée au client reste inchangée,
@@ -703,7 +710,7 @@ async def _run_batch(user_id: str, content_ids: list[str]):
                     auto_add_music=music_enabled,
                 )
 
-                item.overlay_text = ai_result["overlay_text"]
+                item.overlay_text = " / ".join(ai_result["story_lines"])
                 item.caption = ai_result["caption"]
                 item.composed_urls = composed_urls
                 if result.get("error"):

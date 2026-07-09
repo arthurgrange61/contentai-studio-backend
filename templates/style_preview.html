@@ -26,7 +26,9 @@
         {% for image in carousel_images %}
         <div class="rounded-xl overflow-hidden border border-gray-200">
           <img src="{{ image }}" class="w-full aspect-[9/16] object-cover"/>
-          <p class="text-[10px] text-gray-400 text-center py-1">Photo {{ loop.index }}</p>
+          <p class="text-[10px] text-gray-500 text-center py-1 px-1">
+            {% if story_lines and loop.index0 < story_lines|length %}« {{ story_lines[loop.index0] }} »{% else %}Photo {{ loop.index }}{% endif %}
+          </p>
         </div>
         {% endfor %}
       </div>
