@@ -18,16 +18,28 @@ def _cfg(name: str, default: str = "") -> str:
     return os.environ.get(name, default)
 
 
+def _truncate_caption(text: str, limit: int) -> str:
+    """Coupe proprement sur un mot entier pour ne jamais dépasser `limit` caractères."""
+    text = text.strip()
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0].rstrip(",.;:!-")
+    return cut or text[:limit]
+
+
 async def generate_content_piece(
     business_name: str,
     example_texts: list[str],
     piece_index: int,
     total_pieces: int,
+    max_caption_length: int = 220,
 ) -> dict:
     """
     Génère un texte à incruster sur la photo + une légende de publication,
     en variant le ton d'une pièce à l'autre pour éviter la répétition sur un
-    lot de plusieurs contenus.
+    lot de plusieurs contenus. `max_caption_length` doit être fixé à 90 si un
+    compte TikTok est ciblé (TikTok utilise la légende comme titre du
+    carrousel photo, plafonné à 90 caractères).
     """
     examples_block = (
         "\n".join(f"- {t}" for t in example_texts) if example_texts
@@ -42,7 +54,7 @@ Exemples de textes fournis par le client pour te guider sur le TON à adopter :
 Tu dois générer la pièce de contenu numéro {piece_index + 1} sur un lot de {total_pieces}. Les {total_pieces} pièces seront publiées les unes après les autres : IMPORTANT, varie l'angle et la formulation par rapport aux autres pièces du lot pour que le contenu ne soit jamais répétitif (change l'accroche, l'angle marketing, les emojis, la structure de phrase).
 
 Réponds STRICTEMENT en JSON, sans aucun texte autour, avec ce format exact :
-{{"overlay_text": "texte court (5-8 mots max) à incruster directement sur la photo, percutant", "caption": "légende complète pour la publication (2-3 phrases, avec des hashtags pertinents)"}}"""
+{{"overlay_text": "texte court (5-8 mots max) à incruster directement sur la photo, percutant", "caption": "légende pour la publication, hashtags pertinents inclus — {max_caption_length} caractères MAXIMUM au total, hashtags compris"}}"""
 
     async with httpx.AsyncClient(timeout=30) as client:
         r = await client.post(
@@ -64,5 +76,7 @@ Réponds STRICTEMENT en JSON, sans aucun texte autour, avec ce format exact :
         parsed = json.loads(content)
         return {
             "overlay_text": parsed.get("overlay_text", "")[:80],
-            "caption": parsed.get("caption", ""),
+            # Filet de sécurité : on ne compte pas uniquement sur le respect de la
+            # consigne par le modèle, TikTok rejette toute légende > 90 caractères.
+            "caption": _truncate_caption(parsed.get("caption", ""), max_caption_length),
         }

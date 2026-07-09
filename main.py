@@ -653,11 +653,15 @@ async def _run_batch(user_id: str, content_ids: list[str]):
                 continue
 
             try:
+                # TikTok utilise la légende comme titre du carrousel photo, plafonné
+                # à 90 caractères — les autres plateformes sont bien plus larges.
+                has_tiktok = any(a.get("platform") == "tiktok" for a in selected_accounts)
                 ai_result = await ai_writer.generate_content_piece(
                     business_name=user.business_name,
                     example_texts=style_examples,
                     piece_index=idx,
                     total_pieces=total,
+                    max_caption_length=90 if has_tiktok else 220,
                 )
 
                 n = len(item.photo_urls)
