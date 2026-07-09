@@ -41,6 +41,7 @@ Routes principales — 3 espaces : Bibliothèque, Styles, Publication.
 """
 import datetime
 import os
+import base64
 import random
 import re
 from contextlib import asynccontextmanager
@@ -357,6 +358,86 @@ async def styles_create(
         await session.commit()
 
     return RedirectResponse("/styles", status_code=303)
+
+
+@app.post("/styles/{style_id}/edit", response_class=HTMLResponse)
+async def styles_edit(
+    style_id: str,
+    request: Request,
+    name: str = Form(...),
+    examples: str = Form(""),
+    photo_count: int = Form(1),
+    overlay_position: str = Form("first"),
+    music_enabled: str = Form("off"),
+    text_style: str = Form("outline"),
+    text_placement: str = Form("top"),
+):
+    user_id = _session_user_id(request)
+    if not user_id:
+        return RedirectResponse("/", status_code=303)
+
+    example_texts = [line.strip() for line in examples.splitlines() if line.strip()]
+    photo_count = max(1, min(10, photo_count))
+
+    async with db.get_session() as session:
+        style = await session.get(db.ContentStyle, style_id)
+        if style and style.user_id == user_id:
+            style.name = name
+            style.example_texts = example_texts
+            style.photo_count = photo_count
+            style.overlay_position = overlay_position
+            style.music_enabled = (music_enabled == "on")
+            style.text_style = text_style
+            style.text_placement = text_placement
+            await session.commit()
+
+    return RedirectResponse("/styles", status_code=303)
+
+
+@app.get("/styles/{style_id}/preview", response_class=HTMLResponse)
+async def styles_preview(style_id: str, request: Request):
+    """Génère 3 exemples de rendu pour ce style, sans rien publier ni stocker chez Zernio."""
+    user_id = _session_user_id(request)
+    if not user_id:
+        return RedirectResponse("/")
+
+    async with db.get_session() as session:
+        user = await db.get_user(session, user_id)
+        style = await session.get(db.ContentStyle, style_id)
+        if not user or not style or style.user_id != user_id:
+            return RedirectResponse("/styles")
+
+        photos = await db.list_photos(session, user_id)
+        if not photos:
+            return RedirectResponse("/library")
+
+        pool = photos.copy()
+        random.shuffle(pool)
+        chosen = [pool[i % len(pool)] for i in range(3)]
+
+        examples = []
+        async with httpx.AsyncClient(timeout=30) as client:
+            for i, photo in enumerate(chosen):
+                ai_result = await ai_writer.generate_content_piece(
+                    business_name=user.business_name,
+                    example_texts=style.example_texts or [],
+                    piece_index=i,
+                    total_pieces=3,
+                )
+                photo_bytes = (await client.get(photo.url)).content
+                if style.overlay_position != "none":
+                    composed = imaging.overlay_text_on_image(
+                        photo_bytes, ai_result["overlay_text"], style=style.text_style, position=style.text_placement
+                    )
+                else:
+                    composed = imaging.overlay_text_on_image(photo_bytes, "", style=style.text_style, position=style.text_placement)
+                data_uri = "data:image/jpeg;base64," + base64.b64encode(composed).decode()
+                examples.append({"image": data_uri, "caption": ai_result["caption"]})
+
+        return templates.TemplateResponse(
+            "style_preview.html",
+            {"request": request, "business_name": user.business_name, "style": style, "examples": examples},
+        )
 
 
 @app.post("/styles/delete/{style_id}")

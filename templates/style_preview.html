@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContentAI Studio — Aperçu du style</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .grad-bg { background: linear-gradient(90deg,#6366f1,#a855f7,#ec4899); }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 antialiased min-h-screen">
+  {% include "_nav.html" %}
+
+  <main class="max-w-4xl mx-auto px-6 py-10">
+    <a href="/styles" class="text-xs text-gray-400 hover:text-gray-900">← Retour aux styles</a>
+    <h1 class="text-2xl font-bold mt-2 mb-1">Aperçu — {{ style.name }}</h1>
+    <p class="text-sm text-gray-500 mb-8">
+      3 exemples générés avec ce style (texte, position, ton) à partir de photos de ta bibliothèque.
+      Rien n'est publié ni sauvegardé.
+    </p>
+
+    <div class="grid sm:grid-cols-3 gap-5">
+      {% for ex in examples %}
+      <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+        <img src="{{ ex.image }}" class="w-full aspect-[9/16] object-cover"/>
+        <p class="text-xs text-gray-600 p-4">{{ ex.caption }}</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <a href="/styles/{{ style.id }}/preview" class="inline-block mt-8 text-sm font-medium text-white grad-bg rounded-xl px-5 py-2.5">
+      🔄 Régénérer 3 nouveaux exemples
+    </a>
+  </main>
+</body>
+</html>
