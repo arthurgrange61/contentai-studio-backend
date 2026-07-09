@@ -446,6 +446,14 @@ async def styles_page(request: Request):
         if not user:
             return RedirectResponse("/")
         styles = await db.list_styles(session, user_id)
+        # Anciens styles créés avant le format "histoire multi-slides" : leurs
+        # exemples sont une simple liste de chaînes plutôt qu'une liste
+        # d'histoires (liste de lignes). Normalise pour l'affichage, sinon
+        # Jinja "join" itère caractère par caractère sur une chaîne brute.
+        for style in styles:
+            style.example_texts = [
+                ex if isinstance(ex, list) else [ex] for ex in (style.example_texts or [])
+            ]
         photos = await db.list_photos(session, user_id)
         return templates.TemplateResponse(
             "styles.html",
