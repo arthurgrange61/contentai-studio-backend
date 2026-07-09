@@ -92,6 +92,7 @@ SESSION_SECRET = os.environ.get("SESSION_SECRET", "dev-secret-change-me")
 signer = URLSafeSerializer(SESSION_SECRET, salt="contentai-studio-session")
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"}
+MAX_PHOTO_SIZE = 15 * 1024 * 1024  # 15 Mo
 
 
 @app.exception_handler(httpx.HTTPStatusError)
@@ -327,6 +328,26 @@ async def connect(request: Request, platform: str):
     return RedirectResponse(auth_url)
 
 
+@app.post("/settings/disconnect/{account_id}")
+async def settings_disconnect(account_id: str, request: Request):
+    user_id = _session_user_id(request)
+    if not user_id:
+        return RedirectResponse("/", status_code=303)
+
+    async with db.get_session() as session:
+        user = await db.get_user(session, user_id)
+        if not user or not user.profile_id:
+            return RedirectResponse("/settings", status_code=303)
+
+        # Vérifie que le compte appartient bien au profile Zernio de cet utilisateur
+        # avant de le déconnecter (évite de déconnecter un compte via un id deviné).
+        accounts = await zernio.list_accounts(user.profile_id)
+        if any(a["_id"] == account_id for a in accounts):
+            await zernio.disconnect_account(account_id)
+
+    return RedirectResponse("/settings", status_code=303)
+
+
 # ─── Bibliothèque de photos ─────────────────────────────────────────────────
 @app.api_route("/library", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def library(request: Request):
@@ -365,6 +386,14 @@ async def library_upload(request: Request, photos: list[UploadFile] = File(defau
                 errors.append(f"{photo.filename} : format non supporté")
                 continue
             data = await photo.read()
+            if len(data) > MAX_PHOTO_SIZE:
+                errors.append(f"{photo.filename} : fichier trop volumineux (max 15 Mo)")
+                continue
+            # Le Content-Type est déclaré par le navigateur, donc falsifiable :
+            # on vérifie que le contenu est vraiment une image décodable.
+            if not imaging.is_valid_image(data):
+                errors.append(f"{photo.filename} : fichier image invalide ou corrompu")
+                continue
             try:
                 url = await zernio.upload_media(photo.filename, content_type, data)
             except Exception as e:
@@ -636,6 +665,10 @@ async def posting_rule_create(
         return RedirectResponse("/", status_code=303)
 
     async with db.get_session() as session:
+        style = await session.get(db.ContentStyle, style_id)
+        if not style or style.user_id != user_id:
+            return RedirectResponse("/posting", status_code=303)
+
         session.add(db.PostingRule(
             user_id=user_id, style_id=style_id, day_of_week=day_of_week, time=time, account_ids=account_ids,
         ))
@@ -920,6 +953,26 @@ MONTH_LABELS_FR = [
     "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ]
 
+STUCK_PENDING_MINUTES = 30
+
+
+async def _reconcile_stuck_pending(session, contents: list) -> None:
+    """
+    Un contenu "pending" jamais mis à jour (crash ou redémarrage du service
+    pendant la tâche de fond `_run_batch`) resterait sinon bloqué pour toujours,
+    invisible sauf en creusant la base. On le bascule en échec après un délai.
+    """
+    now = datetime.datetime.utcnow()
+    threshold = datetime.timedelta(minutes=STUCK_PENDING_MINUTES)
+    changed = False
+    for item in contents:
+        if item.status == "pending" and (now - item.created_at) > threshold:
+            item.status = "failed"
+            item.error = "Génération interrompue (délai dépassé) — relance la publication."
+            changed = True
+    if changed:
+        await session.commit()
+
 
 def _build_calendar(contents: list, year: int, month: int) -> dict:
     """Grille du mois (semaines de 7 jours, lundi en premier) + nb de contenus par jour."""
@@ -961,6 +1014,7 @@ async def queue_page(request: Request, month: str = ""):
         if not user:
             return RedirectResponse("/")
         contents = await db.list_contents(session, user_id)
+        await _reconcile_stuck_pending(session, contents)
         pending = any(c.status == "pending" for c in contents)
 
         cal_data = _build_calendar(contents, year, mon)

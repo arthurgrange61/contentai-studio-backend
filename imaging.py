@@ -195,6 +195,15 @@ def _add_outline_overlay(image: Image.Image, text: str, position: str) -> Image.
     return img
 
 
+def is_valid_image(data: bytes) -> bool:
+    """Vérifie que `data` est bien une image décodable (le Content-Type déclaré par le navigateur est falsifiable)."""
+    try:
+        Image.open(BytesIO(data)).verify()
+        return True
+    except Exception:
+        return False
+
+
 def overlay_text_on_image(image_bytes: bytes, text: str, style: str = "outline", position: str = "top") -> bytes:
     """
     Recadre l'image au format TikTok (9:16) et incruste `text`, selon `style`

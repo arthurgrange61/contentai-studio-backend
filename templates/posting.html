@@ -83,7 +83,7 @@
                     {{ 'Reprendre' if not rule.active else 'Pause' }}
                   </button>
                 </form>
-                <form method="post" action="/posting/rules/delete/{{ rule.id }}">
+                <form method="post" action="/posting/rules/delete/{{ rule.id }}" onsubmit="return confirm('Supprimer cette règle de planning ?');">
                   <button type="submit" class="text-[10px] text-gray-400 hover:text-red-600 underline">Supprimer</button>
                 </form>
               </div>

@@ -45,7 +45,7 @@
       {% for photo in photos %}
       <div class="relative aspect-square rounded-xl overflow-hidden border border-gray-200 group">
         <img src="{{ photo.url }}" class="w-full h-full object-cover"/>
-        <form method="post" action="/library/delete/{{ photo.id }}" class="absolute top-1.5 right-1.5">
+        <form method="post" action="/library/delete/{{ photo.id }}" class="absolute top-1.5 right-1.5" onsubmit="return confirm('Supprimer cette photo ?');">
           <button type="submit" title="Supprimer"
             class="w-6 h-6 rounded-full bg-black/60 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition">✕</button>
         </form>

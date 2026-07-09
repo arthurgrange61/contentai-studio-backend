@@ -156,3 +156,11 @@ async def delete_post(post_id: str) -> None:
         r = await client.delete(f"{BASE_URL}/posts/{post_id}", headers=_headers())
         if r.status_code not in (200, 204, 404):
             r.raise_for_status()
+
+
+async def disconnect_account(account_id: str) -> None:
+    """Déconnecte un compte social (le profile et les autres comptes restent intacts)."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.delete(f"{BASE_URL}/accounts/{account_id}", headers=_headers())
+        if r.status_code not in (200, 204, 404):
+            r.raise_for_status()

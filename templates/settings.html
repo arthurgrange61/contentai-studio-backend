@@ -44,9 +44,14 @@
         <li class="flex items-center justify-between border border-gray-100 rounded-xl px-4 py-3">
           <span class="text-sm"><span class="font-medium capitalize">{{ acc.platform }}</span>
             <span class="text-gray-400">— @{{ acc.username or acc.displayName }}</span></span>
-          <span class="{{ 'text-green-600' if acc.isActive else 'text-red-500' }} text-xs font-medium">
-            {{ '● Actif' if acc.isActive else '● Déconnecté' }}
-          </span>
+          <div class="flex items-center gap-3">
+            <span class="{{ 'text-green-600' if acc.isActive else 'text-red-500' }} text-xs font-medium">
+              {{ '● Actif' if acc.isActive else '● Déconnecté' }}
+            </span>
+            <form method="post" action="/settings/disconnect/{{ acc._id }}" onsubmit="return confirm('Déconnecter ce compte ? Il ne recevra plus de publications tant que tu ne le reconnectes pas.');">
+              <button type="submit" class="text-xs text-gray-400 hover:text-red-600">Déconnecter</button>
+            </form>
+          </div>
         </li>
         {% endfor %}
       </ul>
@@ -81,8 +86,9 @@
       </div>
       {% endif %}
       <a href="/billing/portal" class="inline-block text-sm font-medium text-white grad-bg rounded-xl px-5 py-2.5">
-        Gérer mon abonnement
+        Gérer ou annuler mon abonnement
       </a>
+      <p class="text-xs text-gray-400 mt-2">Ouvre le portail sécurisé Stripe : change de formule, mets à jour ta carte, ou résilie à tout moment.</p>
       {% else %}
       <p class="text-sm text-gray-500 mb-5">Choisis une formule pour activer la publication automatique.</p>
       <div class="grid sm:grid-cols-2 gap-3">
