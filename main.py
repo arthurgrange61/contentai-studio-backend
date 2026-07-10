@@ -1174,6 +1174,28 @@ async def admin_set_password(
     return {"email": email, "password_set": True}
 
 
+@app.post("/admin/reset-profile")
+async def admin_reset_profile(request: Request, secret: str = Form(...), email: str = Form(...)):
+    """
+    Efface le profile_id enregistré pour ce compte : au prochain "Connecter un
+    compte", _ensure_profile en crée un nouveau (utile après un changement de
+    ZERNIO_API_KEY — l'ancien profile_id pointerait vers un compte Zernio qui
+    n'est plus le bon). Protégé par ADMIN_SECRET.
+    """
+    admin_secret = os.environ.get("ADMIN_SECRET", "")
+    if not admin_secret or not hmac.compare_digest(secret, admin_secret):
+        return HTMLResponse("Forbidden", status_code=403)
+
+    async with db.get_session() as session:
+        user = await db.get_user_by_email(session, email)
+        if not user:
+            return HTMLResponse(f"Aucun compte trouvé pour {email}", status_code=404)
+        user.profile_id = None
+        await session.commit()
+
+    return {"email": email, "profile_id": None}
+
+
 @app.post("/billing/webhook")
 async def billing_webhook(request: Request):
     payload = await request.body()
