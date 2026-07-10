@@ -143,10 +143,17 @@ def _base_url(request: Request) -> str:
 
 
 async def _ensure_profile(session, user: db.StudioUser) -> str:
-    """Crée le profile Zernio à la demande (1ère connexion d'un compte social)."""
+    """
+    Crée le profile Zernio à la demande (1ère connexion d'un compte social).
+    Le nom inclut un identifiant unique (id du compte Studio) car Zernio
+    refuse deux profiles de même nom sur un même compte — un vrai client
+    pourrait sinon entrer en conflit avec un profile déjà existant portant
+    le même nom de boutique (ex: sur un compte Zernio déjà utilisé ailleurs).
+    """
     if not user.profile_id:
         profile = await zernio.create_profile(
-            name=user.business_name, description=f"ContentAI Studio — {user.email}"
+            name=f"{user.business_name} · {user.id[:8]}",
+            description=f"ContentAI Studio — {user.email}",
         )
         user.profile_id = profile["_id"]
         await session.commit()
