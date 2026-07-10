@@ -102,6 +102,7 @@ async def zernio_error_handler(request: Request, exc: httpx.HTTPStatusError):
     atteint, panne côté API...) affiche une page claire plutôt qu'un 500 brut.
     """
     status = exc.response.status_code
+    print(f"[zernio_error] {exc.request.method} {exc.request.url} -> HTTP {status} : {exc.response.text[:500]}")
     if status == 402:
         title = "Erreur du nombre de connexions"
         message = "Erreur du nombre de connexions, contactez le support."
